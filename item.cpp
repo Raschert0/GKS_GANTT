@@ -1,9 +1,11 @@
 #include "item.h"
 #include <QDebug>
 
+static int global_item_id{0};
+
 Item::Item()
 {
-    static int global_item_id{0};
+
     _id = global_item_id;
     ++global_item_id;
 }
@@ -11,6 +13,11 @@ Item::Item()
 Item::Item(const Item &i) : operations{i.operations}, times{i.times}
 {
     _id = i._id;
+}
+
+void Item::resetIdCounter()
+{
+    global_item_id = 0;
 }
 
 void Item::addOperation(int fpm_id, double time)

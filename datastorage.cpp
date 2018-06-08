@@ -13,8 +13,23 @@ DataStorage::DataStorage()
     current_rule = QSharedPointer<SupRule>(new FirstRule());
 }
 
+DataStorage::~DataStorage()
+{
+    stored_archives.clear();
+    archive.clear();
+}
+
+void DataStorage::clear()
+{
+    Item::resetIdCounter();
+    AS::resetIdCounter();
+    ATM::resetIdCounter();
+    FPM::resetIdCounter();
+}
+
 bool DataStorage::load(QString filename)
 {
+    clear();
     QFile f;
     f.setFileName(filename);
     if(!f.exists() || !f.open(QIODevice::ReadOnly)){
@@ -34,6 +49,8 @@ bool DataStorage::load(QString filename)
     if(!readNumber(in, atms_count, __LINE__))     return false;
     if(!readNumber(in, as_count, __LINE__))     return false;
     in.readLine();
+
+    archive.reset(new CaseChart(fpms_count));
 
     if(no_atm){
         atms_count = 0;
@@ -297,12 +314,12 @@ void DataStorage::reset()
 
     if(!no_atm){
         stored_atms.push_back(atms);
-        stored_fpms.push_back(fpms);
-
         atms.clear();
     }
 
+    stored_fpms.push_back(fpms);
     fpms.clear();
+
     items.clear();
 
     for(int i{0}; i < original_atms.size(); ++i){
@@ -321,6 +338,11 @@ void DataStorage::reset()
         stored_reloaders.push_back(reloader);
         reloader.reset(new BaseFactory());
     }
+
+    if(archive.data() != nullptr){
+        stored_archives.push_back(archive);
+        archive.reset(new CaseChart(original_fpms.size()));
+    }
 }
 
 void DataStorage::setNewRule(SupRule *ptr)
@@ -330,13 +352,8 @@ void DataStorage::setNewRule(SupRule *ptr)
 
 void DataStorage::firstRun()
 {
-    QSharedPointer<FPM> nptr;
     for(int i{0}; i < items.size(); ++i){
         int n_fpm_id = items[i].data()->nextFPMid();
-        if(!n_fpm_id){
-            qDebug() << "DAMNIT! (firstrun)";
-            exit(1);
-        }
 
         FPM* n_fpm = fpms[n_fpm_id - as_count].data();
         n_fpm->addToQueue(items[i]);
@@ -353,56 +370,67 @@ void DataStorage::calculateThemAll()
         //ATMs processing
         QVector<QSharedPointer<ATM>> free_atms;
         QVector<QSharedPointer<ATM>> busy_atms;
-        for(int i{0}; i < atms.size(); ++i){
-            if(atms[i].data()->status() != FStatus::Idle){
-                working = true;
-                busy_atms.push_back(atms[i]);
-                continue;
+
+        if(!no_atm){
+            for(int i{0}; i < atms.size(); ++i){
+                if(atms[i].data()->status() != FStatus::Idle){
+                    working = true;
+                    busy_atms.push_back(atms[i]);
+                    continue;
+                }
+                free_atms.push_back(atms[i]);
             }
-            free_atms.push_back(atms[i]);
-        }
 
-        for(int i{busy_atms.size() - 1}; i >= 0; --i){
-            QVector<LogEntry> &c_log = busy_atms[i].data()->getLog();
-            for(int j{0}; j < c_log.size(); ++j){
-                if(!c_log[j].isDone()){
-                    if(c_log[j].end() < current_time){
-                        QSharedPointer<Item> transf_item = items[c_log[j].itemId()];
-                        int iid = c_log[j].itemId();
-                        if(transf_item.data()->factory() == busy_atms[i]){
-                            int next_fpm = c_log[j].dest();
-                            if(next_fpm){
-                                QSharedPointer<FPM> recpt_fpm = fpms[next_fpm - as_count];
-                                transf_item.data()->setFactory(recpt_fpm);
-                                recpt_fpm.data()->setStatus(FStatus::Busy);
-                                recpt_fpm.data()->getLog().push_back(LogEntry(current_time, transf_item.data()->nextFPMtime(), transf_item.data()->id()));
-                                recpt_fpm.data()->selectFromQueueById(transf_item.data()->id());
+            for(int i{busy_atms.size() - 1}; i >= 0; --i){
+                QVector<LogEntry> &c_log = busy_atms[i].data()->getLog();
+                for(int j{0}; j < c_log.size(); ++j){
+                    if(!c_log[j].isDone()){
+                        if(c_log[j].end() < current_time){
+                            QSharedPointer<Item> transf_item = items[c_log[j].itemId()];
+                            //int iid = c_log[j].itemId();
 
-                                transf_item.data()->setNextOperation();
+                            if(transf_item.data()->factory() == busy_atms[i]){
+                                int next_fpm = c_log[j].dest();
+                                if(next_fpm > as_count - 1){
+                                    QSharedPointer<FPM> recpt_fpm = fpms[next_fpm - as_count];
+                                    transf_item.data()->setFactory(recpt_fpm);
+                                    recpt_fpm.data()->setStatus(FStatus::Busy);
+                                    recpt_fpm.data()->getLog().push_back(LogEntry(current_time, transf_item.data()->nextFPMtime(), transf_item.data()->id()));
+                                    recpt_fpm.data()->selectFromQueueById(transf_item.data()->id());
+
+                                    QString tok;
+                                    tok += "[" + QString::number(transf_item.data()->id() + 1) + "] ";
+                                    for(int i{0}; i < recpt_fpm.data()->queueSize(); ++i){
+                                        tok += QString::number(recpt_fpm.data()->queue[i].data()->id() + 1) + " ";
+                                    }
+                                    archive.data()->saveString(tok, recpt_fpm.data()->Id(), current_time);
+
+                                    transf_item.data()->setNextOperation();
+                                }else{
+                                    qDebug() << transf_item.data()->id() + 1 << "stored at" << c_log[j].dest() << "(time:" << current_time << ")";
+                                }
+                                transf_item.data()->current_pos = c_log[j].dest();
+                                transf_item.data()->on_the_way = false;
                             }else{
-                                qDebug() << transf_item.data()->id() + 1 << "stored at" << c_log[j].dest() << "(time:" << current_time << ")";
+                                qDebug() << "Bingo?" << transf_item.data()->id();
                             }
-                            transf_item.data()->current_pos = c_log[j].dest();
-                            transf_item.data()->on_the_way = false;
+                            c_log[j].finish();
                         }else{
-                            qDebug() << "Bingo?" << transf_item.data()->id();
+                            break;
                         }
-                        c_log[j].finish();
-                    }else{
-                        break;
                     }
                 }
+                if(c_log.last().isDone()){
+                    busy_atms[i].data()->setStatus(FStatus::Idle);
+                    free_atms.push_back(busy_atms[i]);
+                    busy_atms.removeAt(i);
+                }
             }
-            if(c_log.last().isDone()){
-                busy_atms[i].data()->setStatus(FStatus::Idle);
-                free_atms.push_back(busy_atms[i]);
-                busy_atms.removeAt(i);
-            }
-        }
 
-        if(!free_atms.size()){
-            current_time += discrete;
-            continue;
+            if(!free_atms.size()){
+                current_time += discrete;
+                continue;
+            }
         }
 
         //FPMs processing
@@ -415,7 +443,6 @@ void DataStorage::calculateThemAll()
                     continue;
                 }
                 working = true;
-
 
                 select_next_from_idle:
                 c_fpm.data()->setStatus(FStatus::Idle);
@@ -437,42 +464,61 @@ void DataStorage::calculateThemAll()
                     }
 
                     QSharedPointer<Item> &c_item = (*c_fpm.data())[best_item];
-                    int c_pos = c_item.data()->current_pos;
-                    int n_pos = c_item.data()->nextFPMid();
-                    double dummy;
-                    int c_ts;
-                    QVector<QSharedPointer<ATM>> transports = findBestAtmsToMoveFromToInList(c_pos, n_pos, &dummy, &c_ts, free_atms);
-                    if(!transports.size()){
-                        fail = true;
-                        continue;
-                    }
+                    if(!no_atm){
+                        int c_pos = c_item.data()->current_pos;
+                        int n_pos = c_item.data()->nextFPMid();
+                        double dummy;
+                        int c_ts;
+                        QVector<QSharedPointer<ATM>> transports = findBestAtmsToMoveFromToInList(c_pos, n_pos, &dummy, &c_ts, free_atms);
+                        if(!transports.size()){
+                            fail = true;
+                            continue;
+                        }
 
-                    c_item.data()->setFactory(transports.last());
-                    int iid = c_item.data()->id();
-                    double move_start_time = current_time + 0.5 - time_to_move_to_from[transports.first().data()->tId()][n_pos][c_pos];
-                    if(move_start_time < 0){
-                        move_start_time = 0;
-                    }
+                        c_item.data()->setFactory(transports.last());
+                        //int iid = c_item.data()->id();
+                        double move_start_time = current_time + 0.5 - time_to_move_to_from[transports.first().data()->tId()][n_pos][c_pos];
+                        if(move_start_time < 0){
+                            move_start_time = 0;
+                        }
 
-                    if(c_ts < 2){
-                        transports.first().data()->transportToNextPos(c_item, this, move_start_time, c_ts);
+                        if(c_ts < 2){
+                            transports.first().data()->transportToNextPos(c_item, this, move_start_time, c_ts);
+                        }else{
+                            int intersect = move_intersections[c_ts - 2][n_pos][c_pos];
+                            double rollover_time = transports.first().data()->haulFromTo(c_item.data()->id(), c_pos, intersect, this, move_start_time);
+                            reloader.data()->getLog().push_back(LogEntry(rollover_time, 1, c_item.data()->id()));
+                            double second_atm_start_time = rollover_time;// - time_to_pos_to_from[transports.last().data()->tId()][intersect][transports.last().data()->cPos()];
+                            transports.last().data()->deliverFromTo(c_item.data()->id(), intersect, n_pos, this, second_atm_start_time);
+
+                            transports.first().data()->getLog().last().cross_move = 1;
+                            transports.last().data()->getLog().last().cross_move = 2;
+                        }
+
+                        c_item.data()->on_the_way = true;
+                        //c_fpm.data()->addToQueue(c_item);
+                        c_fpm.data()->setStatus(FStatus::WaitingForSupply);
                     }else{
-                        int intersect = move_intersections[c_ts - 2][n_pos][c_pos];
-                        double rollover_time = transports.first().data()->haulFromTo(c_item.data()->id(), c_pos, intersect, this, move_start_time, c_ts);
-                        reloader.data()->getLog().push_back(LogEntry(rollover_time, 1, c_item.data()->id()));
-                        double second_atm_start_time = rollover_time;// - time_to_pos_to_from[transports.last().data()->tId()][intersect][transports.last().data()->cPos()];
-                        transports.last().data()->deliverFromTo(c_item.data()->id(), intersect, n_pos, this, second_atm_start_time, c_ts);
+                        c_fpm.data()->selectFromQueue(best_item);
+                        c_fpm.data()->setStatus(FStatus::Busy);
+                        c_fpm.data()->getLog().push_back(LogEntry(current_time, c_item.data()->nextFPMtime(), c_item.data()->id()));
 
-                        transports.first().data()->getLog().last().cross_move = 1;
-                        transports.last().data()->getLog().last().cross_move = 2;
+                        QString tok;
+                        tok += "[" + QString::number(c_item.data()->id() + 1) + "] ";
+                        for(int i{0}; i < c_fpm.data()->queueSize(); ++i){
+                            tok += QString::number(c_fpm.data()->queue[i].data()->id() + 1) + " ";
+                        }
+                        archive.data()->saveString(tok, c_fpm.data()->Id(), current_time);
+
+                        c_item.data()->setFactory(c_fpm);
+                        c_item.data()->current_pos = c_item.data()->nextFPMid();
+                        c_item.data()->setNextOperation();
                     }
-
-                    c_item.data()->on_the_way = true;
-                    //c_fpm.data()->addToQueue(c_item);
-                    c_fpm.data()->setStatus(FStatus::WaitingForSupply);
                 }while(fail);
 
-                c_fpm.data()->queue = cqueue;
+                if(!no_atm){
+                    c_fpm.data()->queue = cqueue;
+                }
             }
             break;
 
@@ -486,83 +532,93 @@ void DataStorage::calculateThemAll()
                 //int ctt = current_time;
                 QSharedPointer<Item> &c_item = c_fpm.data()->currentItem();
                 if(c_item.data()->nextFPMid()){
-                    int c_pos = c_item.data()->currentFPMid();
-                    int n_pos = c_item.data()->nextFPMid();
-                    QSharedPointer<FPM> n_fpm = fpms[n_pos - as_count];
-                    if(n_fpm.data()->status() == FStatus::Idle){
-                        double dummy;
-                        int c_ts;
-                        QVector<QSharedPointer<ATM>> transports = findBestAtmsToMoveFromToInList(c_pos, n_pos, &dummy, &c_ts, free_atms);
-                        if(!transports.size()){
-                            qDebug() << "DAMNIT! (calcthemall, FPMs processing #1.75)";
-                            goto nah;
-                        }else{
-                            c_item.data()->setFactory(transports.last());
-                            double move_start_time = current_time + 0.5;
-                            if(move_start_time < 0){
-                                move_start_time = 0;
-                            }
-
-                            if(c_ts < 2){
-                                transports.first().data()->transportToNextPos(c_item, this, move_start_time, c_ts);
+                    if(!no_atm){
+                        int c_pos = c_item.data()->currentFPMid();
+                        int n_pos = c_item.data()->nextFPMid();
+                        QSharedPointer<FPM> n_fpm = fpms[n_pos - as_count];
+                        if(n_fpm.data()->status() == FStatus::Idle){
+                            double dummy;
+                            int c_ts;
+                            QVector<QSharedPointer<ATM>> transports = findBestAtmsToMoveFromToInList(c_pos, n_pos, &dummy, &c_ts, free_atms);
+                            if(!transports.size()){
+                                qDebug() << "DAMNIT! (calcthemall, FPMs processing #1.75)";
+                                goto nah;
                             }else{
-                                int intersect = move_intersections[c_ts - 2][n_pos][c_pos];
-                                double rollover_time = transports.first().data()->haulFromTo(c_item.data()->id(), c_pos, intersect, this, move_start_time, c_ts);
-                                reloader.data()->getLog().push_back(LogEntry(rollover_time, 1, c_item.data()->id()));
-                                double second_atm_start_time = rollover_time - time_to_pos_to_from[transports.last().data()->tId()][intersect][transports.last().data()->cPos()];
-                                transports.last().data()->deliverFromTo(c_item.data()->id(), intersect, n_pos, this, second_atm_start_time, c_ts);
+                                c_item.data()->setFactory(transports.last());
+                                double move_start_time = current_time + 0.5;
+                                if(move_start_time < 0){
+                                    move_start_time = 0;
+                                }
 
-                                transports.first().data()->getLog().last().cross_move = 1;
-                                transports.last().data()->getLog().last().cross_move = 2;
+                                if(c_ts < 2){
+                                    transports.first().data()->transportToNextPos(c_item, this, move_start_time, c_ts);
+                                }else{
+                                    int intersect = move_intersections[c_ts - 2][n_pos][c_pos];
+                                    double rollover_time = transports.first().data()->haulFromTo(c_item.data()->id(), c_pos, intersect, this, move_start_time);
+                                    reloader.data()->getLog().push_back(LogEntry(rollover_time, 1, c_item.data()->id()));
+                                    double second_atm_start_time = rollover_time;// - time_to_pos_to_from[transports.last().data()->tId()][intersect][transports.last().data()->cPos()];
+                                    transports.last().data()->deliverFromTo(c_item.data()->id(), intersect, n_pos, this, second_atm_start_time);
+
+                                    transports.first().data()->getLog().last().cross_move = 1;
+                                    transports.last().data()->getLog().last().cross_move = 2;
+                                }
+
+                                c_item.data()->on_the_way = true;
+                                n_fpm->addToQueue(c_item);
+                                n_fpm.data()->setStatus(FStatus::WaitingForSupply);
                             }
-
-                            c_item.data()->on_the_way = true;
-                            n_fpm->addToQueue(c_item);
-                            n_fpm.data()->setStatus(FStatus::WaitingForSupply);
+                        }else{
+                            goto nah;
                         }
                     }else{
-                        goto nah;
+                        QSharedPointer<FPM> n_fpm = fpms[c_item.data()->nextFPMid() - as_count];
+                        n_fpm.data()->addToQueue(c_item);
                     }
                 }else{
-                    nah:
-                    double best_time{INT_MAX};
-                    QVector<QSharedPointer<ATM>> transports;
-                    int c_pos = c_item.data()->currentFPMid();
-                    int best_ts;
-                    int best_dest;
-                    for(int i{0}; i < as.size(); ++i){
-                        double c_time;
-                        int c_ts;
-                        auto tr = findBestAtmsToMoveFromTo(c_pos, as[i].data()->id(), &c_time, &c_ts);
-                        if(c_time < best_time && tr.size()){
-                            best_time = c_time;
-                            transports = tr;
-                            best_ts = c_ts;
-                            best_dest = i;
+                    if(!no_atm){
+                        nah:
+                        double best_time{INT_MAX};
+                        QVector<QSharedPointer<ATM>> transports;
+                        int c_pos = c_item.data()->currentFPMid();
+                        int best_ts;
+                        int best_dest;
+                        for(int i{0}; i < as.size(); ++i){
+                            double c_time;
+                            int c_ts;
+                            auto tr = findBestAtmsToMoveFromTo(c_pos, as[i].data()->id(), &c_time, &c_ts);
+                            if(c_time < best_time && tr.size()){
+                                best_time = c_time;
+                                transports = tr;
+                                best_ts = c_ts;
+                                best_dest = i;
+                            }
                         }
-                    }
-                    if(!transports.size()){
-                        continue; //Good luck next time
-                    }
+                        if(!transports.size()){
+                            continue; //Good luck next time
+                        }
 
-                    c_item.data()->setFactory(transports.last());
-                    double move_start_time = current_time + 0.5;
-                    if(best_ts < 2){
-                        transports.first().data()->haulFromTo(c_item.data()->id(), c_pos, as[best_dest].data()->id(), this, move_start_time, best_ts);
+                        c_item.data()->setFactory(transports.last());
+                        double move_start_time = current_time + 0.5;
+                        if(best_ts < 2){
+                            transports.first().data()->haulFromTo(c_item.data()->id(), c_pos, as[best_dest].data()->id(), this, move_start_time);
+                        }else{
+                            int intersect = move_intersections[best_ts - 2][as[best_dest].data()->id()][c_pos];
+                            double rollover_time = transports.first().data()->haulFromTo(c_item.data()->id(), c_pos, intersect, this, move_start_time);
+                            reloader.data()->getLog().push_back(LogEntry(rollover_time, 1, c_item.data()->id()));
+                            double second_atm_start_time = rollover_time;// - time_to_pos_to_from[transports.last().data()->tId()][intersect][transports.last().data()->cPos()];
+                            transports.last().data()->deliverFromTo(c_item.data()->id(), intersect, as[best_dest].data()->id(), this, second_atm_start_time);
+
+                            transports.first().data()->getLog().last().cross_move = 1;
+                            transports.last().data()->getLog().last().cross_move = 2;
+                        }
+
+                        c_item.data()->on_the_way = true;
+                        if(c_item.data()->nextFPMid()){
+                            fpms[c_item.data()->nextFPMid()-as_count].data()->addToQueue(c_item);
+                        }
                     }else{
-                        int intersect = move_intersections[best_ts - 2][as[best_dest].data()->id()][c_pos];
-                        double rollover_time = transports.first().data()->haulFromTo(c_item.data()->id(), c_pos, intersect, this, move_start_time, best_ts);
-                        reloader.data()->getLog().push_back(LogEntry(rollover_time, 1, c_item.data()->id()));
-                        double second_atm_start_time = rollover_time;// - time_to_pos_to_from[transports.last().data()->tId()][intersect][transports.last().data()->cPos()];
-                        transports.last().data()->deliverFromTo(c_item.data()->id(), intersect, as[best_dest].data()->id(), this, second_atm_start_time, best_ts);
-
-                        transports.first().data()->getLog().last().cross_move = 1;
-                        transports.last().data()->getLog().last().cross_move = 2;
-                    }
-
-                    c_item.data()->on_the_way = true;
-                    if(c_item.data()->nextFPMid()){
-                        fpms[c_item.data()->nextFPMid()-as_count].data()->addToQueue(c_item);
+                        QSharedPointer<BaseFactory> nptr;
+                        c_item.data()->setFactory(nptr);
                     }
                 }
 
@@ -572,6 +628,7 @@ void DataStorage::calculateThemAll()
                     QSharedPointer<Item> nptr;
                     c_fpm.data()->setCurrent(nptr);
                     c_fpm.data()->setStatus(FStatus::Idle);
+                    archive.data()->saveString(QString(), c_fpm.data()->Id(), current_time);
                     continue;
                 }else{
                     goto select_next_from_idle;

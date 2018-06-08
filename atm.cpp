@@ -1,9 +1,10 @@
 #include "atm.h"
 #include "datastorage.h"
 
+static int global_atm_id{0};
+
 ATM::ATM() : BaseFactory()
 {
-    static int global_atm_id{0};
     id = global_atm_id;
     ++global_atm_id;
 }
@@ -18,6 +19,11 @@ ATM::ATM(const ATM &a) : transport_system_id{a.transport_system_id}
     id = a.id;
 }
 
+void ATM::resetIdCounter()
+{
+    global_atm_id = 0;
+}
+
 int ATM::tId()
 {
     return transport_system_id;
@@ -28,7 +34,7 @@ int ATM::cPos()
     return current_pos;
 }
 
-double ATM::haulFromTo(int payload, int pickup, int dest, DataStorage *data, double start_time, int ts_to_use)
+double ATM::haulFromTo(int payload, int pickup, int dest, DataStorage *data, double start_time)
 {
     if(log.size()){
         if(start_time < log.last().end() + data->timeToPosTF(pickup, current_pos, transport_system_id)){
@@ -51,7 +57,7 @@ double ATM::haulFromTo(int payload, int pickup, int dest, DataStorage *data, dou
 }
 
 //It's da copy-paste time!
-double ATM::deliverFromTo(int payload, int pickup, int dest, DataStorage *data, double start_time, int ts_to_use)
+double ATM::deliverFromTo(int payload, int pickup, int dest, DataStorage *data, double start_time)
 {
     if(log.size()){
         if(start_time < log.last().end() + data->timeToPosTF(pickup, current_pos, transport_system_id)){

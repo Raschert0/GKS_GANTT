@@ -11,6 +11,7 @@ class Item
 public:
     Item();
     Item(const Item &i);
+    static void resetIdCounter();
     void addOperation(int fpm_id, double time);
     int nextFPMid();
     int nextNextFPMid();

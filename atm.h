@@ -11,10 +11,11 @@ public:
     ATM();
     ATM(int ts_id);
     ATM(const ATM &a);
+    static void resetIdCounter();
     int tId();
     int cPos();
-    double haulFromTo(int payload, int pickup, int dest, DataStorage *data, double start_time, int ts_to_use);
-    double deliverFromTo(int payload, int pickup, int dest, DataStorage *data, double start_time, int ts_to_use);
+    double haulFromTo(int payload, int pickup, int dest, DataStorage *data, double start_time);
+    double deliverFromTo(int payload, int pickup, int dest, DataStorage *data, double start_time);
     double transportToNextPos(QSharedPointer<Item> payload, DataStorage *data, double start_time, int ts_to_use);
     void moveTo(int new_pos);
 private:

@@ -1,9 +1,10 @@
 #include "fpm.h"
 #include <QDebug>
 
+static int global_fpm_id{0};
+
 FPM::FPM() : BaseFactory()
 {
-    static int global_fpm_id{0};
     id = global_fpm_id;
     ++global_fpm_id;
 }
@@ -11,6 +12,11 @@ FPM::FPM() : BaseFactory()
 FPM::FPM(const FPM &f)
 {
     id = f.id;
+}
+
+void FPM::resetIdCounter()
+{
+    global_fpm_id = 0;
 }
 
 int FPM::queueSize()

@@ -8,11 +8,14 @@
 #include "fpm.h"
 #include "as.h"
 #include "suprule.h"
+#include "casechart.h"
 
 class DataStorage
 {
 public:
     DataStorage();
+    ~DataStorage();
+    void clear();
     bool load(QString filename);
     void reset();
     void setNewRule(SupRule *ptr);
@@ -57,6 +60,8 @@ private:
 
     QSharedPointer<BaseFactory> reloader;
     QVector<QSharedPointer<BaseFactory>> stored_reloaders;
+    QSharedPointer<CaseChart> archive;
+    QVector<QSharedPointer<CaseChart>> stored_archives;
 
     int items_count;
     int fpms_count;

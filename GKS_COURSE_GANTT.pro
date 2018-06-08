@@ -34,7 +34,8 @@ SOURCES += \
     fpm.cpp \
     errorshandler.cpp \
     as.cpp \
-    suprule.cpp
+    suprule.cpp \
+    casechart.cpp
 
 HEADERS += \
         mainwindow.h \
@@ -46,4 +47,5 @@ HEADERS += \
     fpm.h \
     errorshandler.h \
     as.h \
-    suprule.h
+    suprule.h \
+    casechart.h

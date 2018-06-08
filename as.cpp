@@ -1,8 +1,9 @@
 #include "as.h"
 
+static int global_as_id{0};
+
 AS::AS()
 {
-    static int global_as_id{0};
     as_id = global_as_id;
     ++global_as_id;
 }
@@ -10,4 +11,9 @@ AS::AS()
 int AS::id()
 {
     return as_id;
+}
+
+void AS::resetIdCounter()
+{
+    global_as_id = 0;
 }

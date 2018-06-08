@@ -17,37 +17,17 @@ SupRule::~SupRule()
 
 int FirstRule::selectItem(DataStorage *data, QSharedPointer<FPM> &ptr)
 {
+    (void)data;
     int ret{-1};
     int min{INT_MAX};
-    if(ptr.data() != nullptr){
-        for(int i{0}; i < ptr.data()->queueSize(); ++i){
-            QSharedPointer<Item> c_item = (*ptr.data())[i];
-            if(c_item.data()->on_the_way){
-                continue;
-            }
-            if(c_item.data()->nextFPMtime() < min){
-                min = c_item.data()->nextFPMtime();
-                ret = i;
-            }
+    for(int i{0}; i < ptr.data()->queueSize(); ++i){
+        QSharedPointer<Item> c_item = (*ptr.data())[i];
+        if(c_item.data()->on_the_way){
+            continue;
         }
-    }else{
-        for(int i{0}; i < data->items.size(); ++i){
-            if(data->items[i].data()->factory() != nullptr){
-                continue;
-            }
-            double min_move_time;
-            int to = data->items[i].data()->nextFPMid();
-            if(!to){
-                qDebug() << "DAMNIT! (firstrule, selectitem)";
-            }
-            int from = 0;
-            int dumb;
-            data->findBestAtmsToMoveFromTo(from, to, &min_move_time, &dumb);
-            double total_time = data->items[i].data()->nextFPMtime() + min_move_time;
-            if(total_time < min){
-                min = total_time;
-                ret = i;
-            }
+        if(c_item.data()->nextFPMtime() > 0 && c_item.data()->nextFPMtime() < min){
+            min = c_item.data()->nextFPMtime();
+            ret = i;
         }
     }
     return ret;
@@ -55,38 +35,18 @@ int FirstRule::selectItem(DataStorage *data, QSharedPointer<FPM> &ptr)
 
 int SecondRule::selectItem(DataStorage *data, QSharedPointer<FPM> &ptr)
 {
+    (void)data;
     int ret{-1};
     int max{0};
-    if(ptr.data() != nullptr){
-        for(int i{0}; i < ptr.data()->queueSize(); ++i){
-            QSharedPointer<Item> c_item = (*ptr.data())[i];
-            if(c_item.data()->on_the_way){
-                continue;
-            }
-            double time = c_item.data()->sumOfFPMtimes(c_item.data()->currentOp() + 1);
-            if(time > max){
-                max = time;
-                ret = i;
-            }
+    for(int i{0}; i < ptr.data()->queueSize(); ++i){
+        QSharedPointer<Item> c_item = (*ptr.data())[i];
+        if(c_item.data()->on_the_way){
+            continue;
         }
-    }else{
-        for(int i{0}; i < data->items.size(); ++i){
-            if(data->items[i].data()->factory() != nullptr){
-                continue;
-            }
-            double min_move_time;
-            int to = data->items[i].data()->nextFPMid();
-            if(!to){
-                qDebug() << "DAMNIT! (secondrule, selectitem)";
-            }
-            int from = 0;
-            int dumb;
-            data->findBestAtmsToMoveFromTo(from, to, &min_move_time, &dumb);
-            double total_time = data->items[i].data()->sumOfFPMtimes(0) + min_move_time;
-            if(total_time > max){
-                max = total_time;
-                ret = i;
-            }
+        double time = c_item.data()->sumOfFPMtimes(c_item.data()->currentOp() + 1);
+        if(time > max){
+            max = time;
+            ret = i;
         }
     }
     return ret;
@@ -94,38 +54,18 @@ int SecondRule::selectItem(DataStorage *data, QSharedPointer<FPM> &ptr)
 
 int FourthRule::selectItem(DataStorage *data, QSharedPointer<FPM> &ptr)
 {
+    (void)data;
     int ret{-1};
     int min{INT_MAX};
-    if(ptr.data() != nullptr){
-        for(int i{0}; i < ptr.data()->queueSize(); ++i){
-            QSharedPointer<Item> c_item = (*ptr.data())[i];
-            if(c_item.data()->on_the_way){
-                continue;
-            }
-            double time = c_item.data()->sumOfFPMtimes(c_item.data()->currentOp() + 1);
-            if(time < min){
-                min = time;
-                ret = i;
-            }
+    for(int i{0}; i < ptr.data()->queueSize(); ++i){
+        QSharedPointer<Item> c_item = (*ptr.data())[i];
+        if(c_item.data()->on_the_way){
+            continue;
         }
-    }else{
-        for(int i{0}; i < data->items.size(); ++i){
-            if(data->items[i].data()->factory() != nullptr){
-                continue;
-            }
-            double min_move_time;
-            int to = data->items[i].data()->nextFPMid();
-            if(!to){
-                qDebug() << "DAMNIT! (secondrule, selectitem)";
-            }
-            int from = 0;
-            int dumb;
-            data->findBestAtmsToMoveFromTo(from, to, &min_move_time, &dumb);
-            double total_time = data->items[i].data()->sumOfFPMtimes(0) + min_move_time;
-            if(total_time < min){
-                min = total_time;
-                ret = i;
-            }
+        double time = c_item.data()->sumOfFPMtimes(c_item.data()->currentOp() + 1);
+        if(time < min){
+            min = time;
+            ret = i;
         }
     }
     return ret;
@@ -133,37 +73,17 @@ int FourthRule::selectItem(DataStorage *data, QSharedPointer<FPM> &ptr)
 
 int FifthRule::selectItem(DataStorage *data, QSharedPointer<FPM> &ptr)
 {
+    (void)data;
     int ret{-1};
     int max{0};
-    if(ptr.data() != nullptr){
-        for(int i{0}; i < ptr.data()->queueSize(); ++i){
-            QSharedPointer<Item> c_item = (*ptr.data())[i];
-            if(c_item.data()->on_the_way){
-                continue;
-            }
-            if(c_item.data()->nextFPMtime() > max){
-                max = c_item.data()->nextFPMtime();
-                ret = i;
-            }
+    for(int i{0}; i < ptr.data()->queueSize(); ++i){
+        QSharedPointer<Item> c_item = (*ptr.data())[i];
+        if(c_item.data()->on_the_way){
+            continue;
         }
-    }else{
-        for(int i{0}; i < data->items.size(); ++i){
-            if(data->items[i].data()->factory() != nullptr){
-                continue;
-            }
-            double min_move_time;
-            int to = data->items[i].data()->nextFPMid();
-            if(!to){
-                qDebug() << "DAMNIT! (firstrule, selectitem)";
-            }
-            int from = 0;
-            int dumb;
-            data->findBestAtmsToMoveFromTo(from, to, &min_move_time, &dumb);
-            double total_time = data->items[i].data()->nextFPMtime() + min_move_time;
-            if(total_time > max){
-                max = total_time;
-                ret = i;
-            }
+        if(c_item.data()->nextFPMtime() > max){
+            max = c_item.data()->nextFPMtime();
+            ret = i;
         }
     }
     return ret;
@@ -173,60 +93,42 @@ int ThirdReich::selectItem(DataStorage *data, QSharedPointer<FPM> &ptr)
 {
     int ret{-1};
     int min{INT_MAX};
-    if(ptr.data() != nullptr){
-        int low_priority_ret{-1};
-        int low_priority_min{INT_MAX};
-        for(int i{0}; i < ptr.data()->queueSize(); ++i){
-            if((*ptr.data())[i].data()->on_the_way){
-                continue;
-            }
-            int n_fpm = (*ptr.data())[i].data()->nextNextFPMid();
-            double c_time{0};
-            if(n_fpm){
-                c_time = data->fpms[n_fpm - data->asCount()].data()->queueTime();
-                if(c_time < min){
-                    min = c_time;
-                    ret = i;
-                }
-            }else{
-                low_priority_min = 0;
-                low_priority_ret = i;
-            }
+    int low_priority_ret{-1};
+    int low_priority_min{INT_MAX};
+    for(int i{0}; i < ptr.data()->queueSize(); ++i){
+        if((*ptr.data())[i].data()->on_the_way){
+            continue;
         }
-
-        if(ret >= 0){
-            return ret;
-        }
-        return low_priority_ret;
-    }else{
-        for(int i{0}; i < data->items_count; ++i){
-            if(data->items[i].data()->factory() != nullptr){
-                continue;
+        int n_fpm = (*ptr.data())[i].data()->nextNextFPMid();
+        double c_time{0};
+        if(n_fpm){
+            c_time = data->fpms[n_fpm - data->asCount()].data()->queueTime();
+            if(c_time < min){
+                min = c_time;
+                ret = i;
             }
-            return i;
+        }else{
+            low_priority_min = 0;
+            low_priority_ret = i;
         }
     }
-    return 0;
+
+    if(ret >= 0){
+        return ret;
+    }
+    return low_priority_ret;
 }
 
 //FIFO
 int SixthRule::selectItem(DataStorage *data, QSharedPointer<FPM> &ptr)
 {
+    (void)data;
     int ret{-1};
-    if(ptr.data() != nullptr){
-        for(int i{0}; i < ptr.data()->queueSize(); ++i){
-            if((*ptr.data())[i].data()->on_the_way){
-                continue;
-            }
-            return i;
+    for(int i{0}; i < ptr.data()->queueSize(); ++i){
+        if((*ptr.data())[i].data()->on_the_way){
+            continue;
         }
-    }else{
-        for(int i{0}; i < data->items_count; ++i){
-            if(data->items[i].data()->factory() != nullptr){
-                continue;
-            }
-            return i;
-        }
+        return i;
     }
     return ret;
 }
@@ -234,20 +136,12 @@ int SixthRule::selectItem(DataStorage *data, QSharedPointer<FPM> &ptr)
 //LIFO
 int SeventhRule::selectItem(DataStorage *data, QSharedPointer<FPM> &ptr)
 {
-    if(ptr.data() != nullptr){
-        for(int i{ptr.data()->queueSize() - 1}; i >= 0; --i){
-            if((*ptr.data())[i].data()->on_the_way){
-                continue;
-            }
-            return i;
+    (void)data;
+    for(int i{ptr.data()->queueSize() - 1}; i >= 0; --i){
+        if((*ptr.data())[i].data()->on_the_way){
+            continue;
         }
-    }else{
-        for(int i{data->items_count - 1}; i >= 0; --i){
-            if(data->items[i].data()->factory() != nullptr){
-                continue;
-            }
-            return i;
-        }
+        return i;
     }
     return -1;
 }

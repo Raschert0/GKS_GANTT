@@ -8,6 +8,7 @@ public:
     AS();
     AS(const AS& a):as_id{a.as_id}{}
     int id();
+    static void resetIdCounter();
 private:
     int as_id;
 };
