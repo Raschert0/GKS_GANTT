@@ -531,7 +531,7 @@ void DataStorage::calculateThemAll()
 
                 //int ctt = current_time;
                 QSharedPointer<Item> &c_item = c_fpm.data()->currentItem();
-                if(c_item.data()->nextFPMid()){
+                if(c_item.data()->nextFPMid() > as_count - 1){
                     if(!no_atm){
                         int c_pos = c_item.data()->currentFPMid();
                         int n_pos = c_item.data()->nextFPMid();
@@ -541,7 +541,7 @@ void DataStorage::calculateThemAll()
                             int c_ts;
                             QVector<QSharedPointer<ATM>> transports = findBestAtmsToMoveFromToInList(c_pos, n_pos, &dummy, &c_ts, free_atms);
                             if(!transports.size()){
-                                qDebug() << "DAMNIT! (calcthemall, FPMs processing #1.75)";
+                                //qDebug() << "DAMNIT! (calcthemall, FPMs processing #1.75)";
                                 goto nah;
                             }else{
                                 c_item.data()->setFactory(transports.last());
@@ -613,8 +613,8 @@ void DataStorage::calculateThemAll()
                         }
 
                         c_item.data()->on_the_way = true;
-                        if(c_item.data()->nextFPMid()){
-                            fpms[c_item.data()->nextFPMid()-as_count].data()->addToQueue(c_item);
+                        if(c_item.data()->nextFPMid() > as_count - 1){
+                            fpms[c_item.data()->nextFPMid() - as_count].data()->addToQueue(c_item);
                         }
                     }else{
                         QSharedPointer<BaseFactory> nptr;
@@ -628,7 +628,7 @@ void DataStorage::calculateThemAll()
                     QSharedPointer<Item> nptr;
                     c_fpm.data()->setCurrent(nptr);
                     c_fpm.data()->setStatus(FStatus::Idle);
-                    archive.data()->saveString(QString(), c_fpm.data()->Id(), current_time);
+                    archive.data()->saveString(QString("\0"), c_fpm.data()->Id(), current_time);
                     continue;
                 }else{
                     goto select_next_from_idle;

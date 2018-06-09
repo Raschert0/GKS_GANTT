@@ -101,7 +101,7 @@ int ThirdReich::selectItem(DataStorage *data, QSharedPointer<FPM> &ptr)
         }
         int n_fpm = (*ptr.data())[i].data()->nextNextFPMid();
         double c_time{0};
-        if(n_fpm){
+        if(n_fpm > data->asCount() - 1){
             c_time = data->fpms[n_fpm - data->asCount()].data()->queueTime();
             if(c_time < min){
                 min = c_time;

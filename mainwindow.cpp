@@ -294,7 +294,6 @@ MainWidget::~MainWidget()
 
 void MainWidget::updateTextEdit()
 {
-    textedit->clear();
     DataStorage *active_storage;
     if(c_master == 1){
         active_storage = d;

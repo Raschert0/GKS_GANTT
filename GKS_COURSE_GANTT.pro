@@ -49,3 +49,4 @@ HEADERS += \
     as.h \
     suprule.h \
     casechart.h
+

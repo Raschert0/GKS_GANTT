@@ -28,7 +28,7 @@ void CaseChart::saveString(QString &value, int id, int time)
         if(i == id){
             continue;
         }
-        if(data[prev_time][i].isEmpty()){
+        if(data[prev_time][i].isEmpty() || !data[time][i].isNull()){
             continue;
         }
         data[time][i] = "-//-";
