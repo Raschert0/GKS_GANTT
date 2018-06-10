@@ -10,6 +10,8 @@
 #include <QImage>
 #include <QPainter>
 
+#include "xlsxdocument.h"
+
 inline QVector<QColor> rndColors(int count){
     QVector<QColor> colors;
     float currentHue = 0.0;
@@ -163,6 +165,23 @@ MainWidget::MainWidget(DataStorage *data, DataStorage *natmdata, QWidget *parent
         painter.setRenderHint(QPainter::Antialiasing);
         scene->render(&painter);
         img.save(filename);
+
+        auto c_arch_det_data = data->stored_archives[z].data()->detailed_data;
+        QXlsx::Document xlsx;
+        int i = 1;
+        for(auto &it : c_arch_det_data){
+            xlsx.write(1, i, QString("ГВМ №") + QString::number(i / 2 + 1));
+            xlsx.setColumnWidth(i + 1, i + 1, 20.0);
+            xlsx.mergeCells(QXlsx::CellRange(1, i, 1, i+1));
+            int j = 2;
+            for(auto &iit : it.keys()){
+                xlsx.write(j, i, QString::number(iit, 'f', 2));
+                xlsx.write(j, i + 1, it[iit]);
+                j++;
+            }
+            i += 2;
+        }
+        xlsx.saveAs(tab_names[z] + ".xlsx");
     }
 
 
@@ -220,6 +239,23 @@ MainWidget::MainWidget(DataStorage *data, DataStorage *natmdata, QWidget *parent
         painter.setRenderHint(QPainter::Antialiasing);
         scene->render(&painter);
         img.save(filename);
+
+        auto c_arch_det_data = natmdata->stored_archives[z].data()->detailed_data;
+        QXlsx::Document xlsx;
+        int i = 1;
+        for(auto &it : c_arch_det_data){
+            xlsx.write(1, i, QString("ГВМ №") + QString::number(i / 2 + 1));
+            xlsx.setColumnWidth(i + 1, i + 1, 20.0);
+            xlsx.mergeCells(QXlsx::CellRange(1, i, 1, i+1));
+            int j = 2;
+            for(auto &iit : it.keys()){
+                xlsx.write(j, i, QString::number(iit, 'f', 2));
+                xlsx.write(j, i + 1, it[iit]);
+                j++;
+            }
+            i += 2;
+        }
+        xlsx.saveAs(tab_names[z] + "_NOATM.xlsx");
     }
 
 

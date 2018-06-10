@@ -43,7 +43,7 @@ private:
 
     bool no_atm{false};
 
-    const double discrete{0.1};
+    const double discrete{0.01};
     double current_time{0};
 
     template<typename T>

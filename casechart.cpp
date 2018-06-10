@@ -5,7 +5,7 @@
 
 CaseChart::CaseChart(int size) : size{size}
 {
-
+    detailed_data.resize(size);
 }
 
 void CaseChart::registerTime(int time)
@@ -15,11 +15,12 @@ void CaseChart::registerTime(int time)
     }
 }
 
-void CaseChart::saveString(QString &value, int id, int time)
+void CaseChart::saveString(QString &value, int id, double time)
 {
-    registerTime(time);
-    data[time][id] = value;
-    int time_index =  data.keys().indexOf(time);
+    int itime = (int)time;
+    registerTime(itime);
+    data[itime][id] = value;
+    int time_index =  data.keys().indexOf(itime);
     if(time_index <= 0){
         return;
     }
@@ -28,9 +29,10 @@ void CaseChart::saveString(QString &value, int id, int time)
         if(i == id){
             continue;
         }
-        if(data[prev_time][i].isEmpty() || !data[time][i].isNull()){
+        if(data[prev_time][i].isEmpty() || !data[itime][i].isNull()){
             continue;
         }
-        data[time][i] = "-//-";
+        data[itime][i] = "-//-";
     }
+    detailed_data[id][time] = value;
 }

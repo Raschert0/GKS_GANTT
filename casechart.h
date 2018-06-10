@@ -8,9 +8,10 @@ class CaseChart
 public:
     CaseChart(int size);
     void registerTime(int time);
-    void saveString(QString &value, int id, int time);
+    void saveString(QString &value, int id, double time);
 
     QMap<int, QVector<QString>> data;
+    QVector<QMap<double, QString>> detailed_data;
 private:
     int size{0};
 };

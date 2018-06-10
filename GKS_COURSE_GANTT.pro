@@ -50,3 +50,4 @@ HEADERS += \
     suprule.h \
     casechart.h
 
+include(xlsx/qtxlsx.pri)
