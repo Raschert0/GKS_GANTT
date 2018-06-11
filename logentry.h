@@ -6,7 +6,7 @@ class LogEntry
 {
 public:
     LogEntry(){}
-    LogEntry(double start, double dur, int id);
+    LogEntry(double start, double dur, int id, int c_op);
     LogEntry(double start, double dur, int id, int s_pos, int e_pos);
     double start();
     double end();
@@ -15,6 +15,8 @@ public:
     bool isDone();
     void finish();
     int dest();
+    int from();
+    int op();
     int cross_move{0};
 private:
     int s_pos{0};
@@ -23,8 +25,8 @@ private:
     double end_time;
     double duration_t;
     int item_id;
+    int item_op{0};
     bool finished{false};
-
 };
 
 #endif // LOGENTRY_H

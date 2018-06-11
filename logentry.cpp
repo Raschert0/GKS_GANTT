@@ -1,12 +1,11 @@
 #include "logentry.h"
 
-LogEntry::LogEntry(double start, double dur, int id) : start_time{start}, duration_t{dur}, item_id{id}
+LogEntry::LogEntry(double start, double dur, int id, int c_op) : start_time{start}, duration_t{dur}, item_id{id}, item_op{c_op}
 {
     end_time = start + dur;
 }
 
-LogEntry::LogEntry(double start, double dur, int id, int s_pos, int e_pos) : start_time{start}, duration_t{dur}, item_id{id}, s_pos{s_pos}, e_pos{e_pos}
-{
+LogEntry::LogEntry(double start, double dur, int id, int s_pos, int e_pos) : start_time{start}, duration_t{dur}, item_id{id}, s_pos{s_pos}, e_pos{e_pos}{
     end_time = start + dur;
 }
 
@@ -43,4 +42,14 @@ void LogEntry::finish()
 int LogEntry::dest()
 {
     return e_pos;
+}
+
+int LogEntry::from()
+{
+    return s_pos;
+}
+
+int LogEntry::op()
+{
+    return item_op;
 }

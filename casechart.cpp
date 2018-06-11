@@ -20,6 +20,7 @@ void CaseChart::saveString(QString &value, int id, double time)
     int itime = (int)time;
     registerTime(itime);
     data[itime][id] = value;
+    detailed_data[id][time] = value;
     int time_index =  data.keys().indexOf(itime);
     if(time_index <= 0){
         return;
@@ -34,5 +35,4 @@ void CaseChart::saveString(QString &value, int id, double time)
         }
         data[itime][i] = "-//-";
     }
-    detailed_data[id][time] = value;
 }

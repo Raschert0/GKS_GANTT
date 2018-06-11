@@ -61,6 +61,10 @@ MainWidget::MainWidget(DataStorage *data, DataStorage *natmdata, QWidget *parent
 
     for(int z{0}; z < data->stored_atms.size(); ++z){
         QGraphicsScene *scene = new QGraphicsScene();
+        QXlsx::Document trans_xlsx;
+        trans_xlsx.setColumnWidth(1, 1, 15.0);
+        trans_xlsx.setColumnWidth(2, 2, 45.0);
+        int tlsxsid{1};
 
         int max_y{(data->stored_atms[z].size() + data->stored_fpms[z].size()) * (h_lines_step + h_lines_width) + h_lines_width * 2};
         if(data->ts_count == 2){
@@ -92,14 +96,41 @@ MainWidget::MainWidget(DataStorage *data, DataStorage *natmdata, QWidget *parent
                                h_lines_width,
                                QPen(),
                                brushes[log[j].itemId()]);
+                QString tsxlsentry;
+                tsxlsentry += "АТМ" + QString::number(i + 1) + " транспортує Д" + QString::number(log[j].itemId() + 1) + " з ";
+                if(log[j].cross_move != 2){
+                    if(log[j].from() > data->asCount() - 1){
+                        tsxlsentry += "ГВМ" + QString::number(log[j].from() - data->asCount() + 1);
+                    }else{
+                        tsxlsentry += "АС" + QString::number(log[j].from() + 1);
+                    }
+                }else{
+                    tsxlsentry += "ПП";
+                }
+                tsxlsentry += " до ";
+
                 if(log[j].cross_move){
                     if(log[j].cross_move == 1){
                         scene->addLine(log[j].end(), i * (h_lines_step + h_lines_width), log[j].end(), end_y_atms);
+                        tsxlsentry += "ПП";
                     }else{
                         scene->addLine(log[j].start(), i * (h_lines_step + h_lines_width), log[j].start(), end_y_atms);
+                        if(log[j].dest() > data->asCount() - 1){
+                            tsxlsentry += "ГВМ" + QString::number(log[j].dest() - data->asCount() + 1);
+                        }else{
+                            tsxlsentry += "АС" + QString::number(log[j].dest() + 1);
+                        }
                     }
-
+                }else{
+                    if(log[j].dest() > data->asCount() - 1){
+                        tsxlsentry += "ГВМ" + QString::number(log[j].dest() - data->asCount() + 1);
+                    }else{
+                        tsxlsentry += "АС" + QString::number(log[j].dest() + 1);
+                    }
                 }
+                trans_xlsx.write(tlsxsid, 1, QString("Т") + QString::number(tlsxsid));
+                trans_xlsx.write(tlsxsid, 2, tsxlsentry);
+                ++tlsxsid;
                 /*QGraphicsSimpleTextItem *num = new QGraphicsSimpleTextItem(" " + QString::number(log[j].itemId() + 1));
                 scene->addItem(num);
                 num->setPos(log[j].start(), i * (h_lines_step + h_lines_width));
@@ -113,8 +144,6 @@ MainWidget::MainWidget(DataStorage *data, DataStorage *natmdata, QWidget *parent
             scene->addItem(simple_text);
             simple_text->setPos(-50, i * (h_lines_step + h_lines_width));
         }
-
-
 
         if(data->ts_count == 2){
             QVector<LogEntry> &log = data->stored_reloaders[z].data()->getLog();
@@ -137,6 +166,8 @@ MainWidget::MainWidget(DataStorage *data, DataStorage *natmdata, QWidget *parent
         }
 
         for(int i{0}; i < data->stored_fpms[z].size(); ++i){
+            QString tsxlsentry;
+
             FPM* c_fpm = data->stored_fpms[z][i].data();
             QVector<LogEntry> &log = c_fpm->getLog();
             for(int j{0}; j < log.size(); ++j){
@@ -146,6 +177,10 @@ MainWidget::MainWidget(DataStorage *data, DataStorage *natmdata, QWidget *parent
                                h_lines_width,
                                QPen(),
                                brushes[log[j].itemId()]);
+                tsxlsentry = "ГВМ" + QString::number(i + 1) + " обробляє Д" + QString::number(log[j].itemId() + 1) + " на " + QString::number(log[j].op() + 2) + " операції";
+                trans_xlsx.write(tlsxsid, 1, QString("Т") + QString::number(tlsxsid));
+                trans_xlsx.write(tlsxsid, 2, tsxlsentry);
+                ++tlsxsid;
             }
             scene->addLine(-50,
                            end_y_atms + i * (h_lines_step + h_lines_width) + h_lines_width,
@@ -168,20 +203,34 @@ MainWidget::MainWidget(DataStorage *data, DataStorage *natmdata, QWidget *parent
 
         auto c_arch_det_data = data->stored_archives[z].data()->detailed_data;
         QXlsx::Document xlsx;
+        QXlsx::Document s_xlsx;
         int i = 1;
         for(auto &it : c_arch_det_data){
             xlsx.write(1, i, QString("ГВМ №") + QString::number(i / 2 + 1));
+            s_xlsx.write(i / 2 + 1, 1, QString("ГВМ №") + QString::number(i / 2 + 1));
+
             xlsx.setColumnWidth(i + 1, i + 1, 20.0);
+
             xlsx.mergeCells(QXlsx::CellRange(1, i, 1, i+1));
-            int j = 2;
+            int j = 2, jj = 2;
             for(auto &iit : it.keys()){
                 xlsx.write(j, i, QString::number(iit, 'f', 2));
                 xlsx.write(j, i + 1, it[iit]);
                 j++;
+                if(!it[iit].isEmpty()){
+                    QString str = it[iit];
+                    QVector<QString> splstr = str.split(QRegExp("\\s+"), QString::SkipEmptyParts).toVector();
+                    if(splstr.first() != QString("-//-")){
+                        s_xlsx.write(i / 2 + 1, jj, splstr.first());
+                        ++jj;
+                    }
+                }
             }
             i += 2;
         }
+        s_xlsx.saveAs(tab_names[z] + "_seq.xlsx");
         xlsx.saveAs(tab_names[z] + ".xlsx");
+        trans_xlsx.saveAs(tab_names[z] + "_uniq.xlsx");
     }
 
 
@@ -242,19 +291,31 @@ MainWidget::MainWidget(DataStorage *data, DataStorage *natmdata, QWidget *parent
 
         auto c_arch_det_data = natmdata->stored_archives[z].data()->detailed_data;
         QXlsx::Document xlsx;
+        QXlsx::Document s_xlsx;
         int i = 1;
         for(auto &it : c_arch_det_data){
             xlsx.write(1, i, QString("ГВМ №") + QString::number(i / 2 + 1));
+            s_xlsx.write(i / 2 + 1, 1, QString("ГВМ №") + QString::number(i / 2 + 1));
+
             xlsx.setColumnWidth(i + 1, i + 1, 20.0);
             xlsx.mergeCells(QXlsx::CellRange(1, i, 1, i+1));
-            int j = 2;
+            int j = 2, jj = 2;
             for(auto &iit : it.keys()){
                 xlsx.write(j, i, QString::number(iit, 'f', 2));
                 xlsx.write(j, i + 1, it[iit]);
                 j++;
+                if(!it[iit].isEmpty()){
+                    QString str = it[iit];
+                    QVector<QString> splstr = str.split(QRegExp("\\s+"), QString::SkipEmptyParts).toVector();
+                    if(splstr.first() != QString("-//-")){
+                        s_xlsx.write(i / 2 + 1, jj, splstr.first());
+                        ++jj;
+                    }
+                }
             }
             i += 2;
         }
+        s_xlsx.saveAs(tab_names[z] + "_seq_NOATM.xlsx");
         xlsx.saveAs(tab_names[z] + "_NOATM.xlsx");
     }
 

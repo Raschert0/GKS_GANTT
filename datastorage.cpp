@@ -395,7 +395,7 @@ void DataStorage::calculateThemAll()
                                     QSharedPointer<FPM> recpt_fpm = fpms[next_fpm - as_count];
                                     transf_item.data()->setFactory(recpt_fpm);
                                     recpt_fpm.data()->setStatus(FStatus::Busy);
-                                    recpt_fpm.data()->getLog().push_back(LogEntry(current_time, transf_item.data()->nextFPMtime(), transf_item.data()->id()));
+                                    recpt_fpm.data()->getLog().push_back(LogEntry(current_time, transf_item.data()->nextFPMtime(), transf_item.data()->id(), transf_item.data()->currentOp()));
                                     recpt_fpm.data()->selectFromQueueById(transf_item.data()->id());
 
                                     QString tok;
@@ -435,6 +435,7 @@ void DataStorage::calculateThemAll()
 
         //FPMs processing
         for(int i{0}; i < fpms.size(); ++i){
+            double delay_time{0.0};
             QSharedPointer<FPM> c_fpm = fpms[i];
             switch(c_fpm.data()->status()){
             case FStatus::Idle:
@@ -477,7 +478,8 @@ void DataStorage::calculateThemAll()
 
                         c_item.data()->setFactory(transports.last());
                         //int iid = c_item.data()->id();
-                        double move_start_time = current_time + 0.5 - time_to_move_to_from[transports.first().data()->tId()][n_pos][c_pos];
+                        //double move_start_time = current_time + delay_time + 0.1 - time_to_move_to_from[transports.first().data()->tId()][n_pos][c_pos];
+                        double move_start_time = current_time + 0.1 - time_to_move_to_from[transports.first().data()->tId()][n_pos][c_pos];
                         if(move_start_time < 0){
                             move_start_time = 0;
                         }
@@ -487,7 +489,7 @@ void DataStorage::calculateThemAll()
                         }else{
                             int intersect = move_intersections[c_ts - 2][n_pos][c_pos];
                             double rollover_time = transports.first().data()->haulFromTo(c_item.data()->id(), c_pos, intersect, this, move_start_time);
-                            reloader.data()->getLog().push_back(LogEntry(rollover_time, 1, c_item.data()->id()));
+                            reloader.data()->getLog().push_back(LogEntry(rollover_time, 1, c_item.data()->id(), c_item.data()->currentOp()));
                             double second_atm_start_time = rollover_time;// - time_to_pos_to_from[transports.last().data()->tId()][intersect][transports.last().data()->cPos()];
                             transports.last().data()->deliverFromTo(c_item.data()->id(), intersect, n_pos, this, second_atm_start_time);
 
@@ -501,7 +503,7 @@ void DataStorage::calculateThemAll()
                     }else{
                         c_fpm.data()->selectFromQueue(best_item);
                         c_fpm.data()->setStatus(FStatus::Busy);
-                        c_fpm.data()->getLog().push_back(LogEntry(current_time, c_item.data()->nextFPMtime(), c_item.data()->id()));
+                        c_fpm.data()->getLog().push_back(LogEntry(current_time, c_item.data()->nextFPMtime(), c_item.data()->id(), c_item.data()->currentOp()));
 
                         QString tok;
                         tok += "[" + QString::number(c_item.data()->id() + 1) + "] ";
@@ -546,6 +548,10 @@ void DataStorage::calculateThemAll()
                             }else{
                                 c_item.data()->setFactory(transports.last());
                                 double move_start_time = current_time + 0.5;
+                                if(transports.first().data()->getLog().size()){
+                                    delay_time = transports.first().data()->getLog().last().end() > current_time ? transports.first().data()->getLog().last().end() - current_time : 0;
+                                }
+                                delay_time += time_to_pos_to_from[transports.first().data()->tId()][c_pos][transports.first().data()->cPos()] + time_to_unload + time_to_take_place;
                                 if(move_start_time < 0){
                                     move_start_time = 0;
                                 }
@@ -555,7 +561,7 @@ void DataStorage::calculateThemAll()
                                 }else{
                                     int intersect = move_intersections[c_ts - 2][n_pos][c_pos];
                                     double rollover_time = transports.first().data()->haulFromTo(c_item.data()->id(), c_pos, intersect, this, move_start_time);
-                                    reloader.data()->getLog().push_back(LogEntry(rollover_time, 1, c_item.data()->id()));
+                                    reloader.data()->getLog().push_back(LogEntry(rollover_time, 1, c_item.data()->id(), c_item.data()->currentOp()));
                                     double second_atm_start_time = rollover_time;// - time_to_pos_to_from[transports.last().data()->tId()][intersect][transports.last().data()->cPos()];
                                     transports.last().data()->deliverFromTo(c_item.data()->id(), intersect, n_pos, this, second_atm_start_time);
 
@@ -599,12 +605,17 @@ void DataStorage::calculateThemAll()
 
                         c_item.data()->setFactory(transports.last());
                         double move_start_time = current_time + 0.5;
+                        if(transports.first().data()->getLog().size()){
+                            delay_time = transports.first().data()->getLog().last().end() > current_time ? transports.first().data()->getLog().last().end() - current_time : 0;
+                        }
+                        delay_time += time_to_pos_to_from[transports.first().data()->tId()][c_pos][transports.first().data()->cPos()] + time_to_unload + time_to_take_place;
+
                         if(best_ts < 2){
                             transports.first().data()->haulFromTo(c_item.data()->id(), c_pos, as[best_dest].data()->id(), this, move_start_time);
                         }else{
                             int intersect = move_intersections[best_ts - 2][as[best_dest].data()->id()][c_pos];
                             double rollover_time = transports.first().data()->haulFromTo(c_item.data()->id(), c_pos, intersect, this, move_start_time);
-                            reloader.data()->getLog().push_back(LogEntry(rollover_time, 1, c_item.data()->id()));
+                            reloader.data()->getLog().push_back(LogEntry(rollover_time, 1, c_item.data()->id(), c_item.data()->currentOp()));
                             double second_atm_start_time = rollover_time;// - time_to_pos_to_from[transports.last().data()->tId()][intersect][transports.last().data()->cPos()];
                             transports.last().data()->deliverFromTo(c_item.data()->id(), intersect, as[best_dest].data()->id(), this, second_atm_start_time);
 
