@@ -17,6 +17,7 @@ public:
 
 private:
     void updateTextEdit();
+    void createPetri(QVector<QString> &tab_names);
 
     QTabWidget *tabs;
     QTabWidget *noatms_tabs;
@@ -31,6 +32,7 @@ private:
 public slots:
     void masterTabCurrentChanged(int index);
     void slaveTabCurrentChanged(int index);
+
 };
 
 #endif // MAINWINDOW_H

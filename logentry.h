@@ -7,7 +7,7 @@ class LogEntry
 public:
     LogEntry(){}
     LogEntry(double start, double dur, int id, int c_op);
-    LogEntry(double start, double dur, int id, int s_pos, int e_pos);
+    LogEntry(double start, double dur, int id, int s_pos, int e_pos, int c_op);
     double start();
     double end();
     double duration();
@@ -25,7 +25,7 @@ private:
     double end_time;
     double duration_t;
     int item_id;
-    int item_op{0};
+    int item_op{-406};
     bool finished{false};
 };
 

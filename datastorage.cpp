@@ -135,6 +135,19 @@ bool DataStorage::load(QString filename)
         }
     }
 
+    {
+        QVector<QString> c_line_split = in.readLine().split(QRegExp("\\s+"), QString::SkipEmptyParts).toVector();
+        for(int j{0}; j < c_line_split.size(); ++j){
+            bool status;
+            int bool_rep = c_line_split[j].toInt(&status);
+            if(!status || bool_rep > fpms.size()){
+                ErrorsHandler::outErr(ErrorCode::PARSE_ERROR, __LINE__);
+                return false;
+            }
+            fpm_has_two_buffers.push_back(bool_rep);
+        }
+    }
+
     if(!no_atm){
         //Завантаження часу
         double move_speed;
@@ -398,12 +411,24 @@ void DataStorage::calculateThemAll()
                                     recpt_fpm.data()->getLog().push_back(LogEntry(current_time, transf_item.data()->nextFPMtime(), transf_item.data()->id(), transf_item.data()->currentOp()));
                                     recpt_fpm.data()->selectFromQueueById(transf_item.data()->id());
 
-                                    QString tok;
-                                    tok += "[" + QString::number(transf_item.data()->id() + 1) + "] ";
-                                    for(int i{0}; i < recpt_fpm.data()->queueSize(); ++i){
-                                        tok += QString::number(recpt_fpm.data()->queue[i].data()->id() + 1) + " ";
+                                    Case tcase;
+                                   tcase.string_rep += "[" + QString::number(recpt_fpm.data()->last_best.absolute_item_id + 1) + "] ";
+                                    tcase.times_strs.push_back(QString::number(recpt_fpm.data()->last_best.best_time, 'f', 2));
+                                    if(recpt_fpm.data()->last_best.alt_calculated){
+                                        tcase.times_strs.last().push_back(" - " + QString::number(recpt_fpm.data()->last_best.alt_time, 'f', 2));
                                     }
-                                    archive.data()->saveString(tok, recpt_fpm.data()->Id(), current_time);
+                                    for(int i{0}; i < recpt_fpm.data()->last_best.relative_candidates.size(); ++i){
+                                        if(recpt_fpm.data()->last_best.relative_candidates[i] == recpt_fpm.data()->last_best.relative_item_id){
+                                            continue;
+                                        }
+                                        tcase.string_rep += QString::number(recpt_fpm.data()->last_best.absolute_candidates[i] + 1) + " ";
+                                        tcase.times_strs.push_back(QString::number(recpt_fpm.data()->last_best.candidates_times[i], 'f', 2));
+                                        if(recpt_fpm.data()->last_best.alt_calculated && recpt_fpm.data()->last_best.best_time == recpt_fpm.data()->last_best.candidates_times[i]){
+                                            tcase.times_strs.last().push_back(" - " + QString::number(recpt_fpm.data()->last_best.alt_times[i], 'f', 2));
+                                        }
+                                    }
+
+                                    archive.data()->saveCase(tcase, recpt_fpm.data()->Id(), current_time);
 
                                     transf_item.data()->setNextOperation();
                                 }else{
@@ -459,13 +484,18 @@ void DataStorage::calculateThemAll()
                         fail = false;
                     }
 
-                    best_item = current_rule.data()->selectItem(this, c_fpm);
+                    TSelectionResult sel = current_rule.data()->selectItem(this, c_fpm);
+                    best_item = sel.relative_item_id;
                     if(best_item == -1){
                         break;
                     }
 
-                    QSharedPointer<Item> &c_item = (*c_fpm.data())[best_item];
+                    QSharedPointer<Item> c_item = (*c_fpm.data())[best_item];
                     if(!no_atm){
+                        c_fpm.data()->last_best = sel;
+                        if(as_count == 2 && c_item.data()->current_pos == 1){
+                            c_item.data()->current_pos = 0; //WOOOOSH
+                        }
                         int c_pos = c_item.data()->current_pos;
                         int n_pos = c_item.data()->nextFPMid();
                         double dummy;
@@ -478,8 +508,8 @@ void DataStorage::calculateThemAll()
 
                         c_item.data()->setFactory(transports.last());
                         //int iid = c_item.data()->id();
-                        //double move_start_time = current_time + delay_time + 0.1 - time_to_move_to_from[transports.first().data()->tId()][n_pos][c_pos];
-                        double move_start_time = current_time + 0.1 - time_to_move_to_from[transports.first().data()->tId()][n_pos][c_pos];
+                        double move_start_time = current_time + delay_time - time_to_move_to_from[transports.first().data()->tId()][n_pos][c_pos];
+                        //double move_start_time = current_time + 0.1 - time_to_move_to_from[transports.first().data()->tId()][n_pos][c_pos];
                         if(move_start_time < 0){
                             move_start_time = 0;
                         }
@@ -488,10 +518,10 @@ void DataStorage::calculateThemAll()
                             transports.first().data()->transportToNextPos(c_item, this, move_start_time, c_ts);
                         }else{
                             int intersect = move_intersections[c_ts - 2][n_pos][c_pos];
-                            double rollover_time = transports.first().data()->haulFromTo(c_item.data()->id(), c_pos, intersect, this, move_start_time);
+                            double rollover_time = transports.first().data()->haulFromTo(c_item.data()->id(), c_pos, intersect, this, move_start_time, c_item.data()->currentOp());
                             reloader.data()->getLog().push_back(LogEntry(rollover_time, 1, c_item.data()->id(), c_item.data()->currentOp()));
                             double second_atm_start_time = rollover_time;// - time_to_pos_to_from[transports.last().data()->tId()][intersect][transports.last().data()->cPos()];
-                            transports.last().data()->deliverFromTo(c_item.data()->id(), intersect, n_pos, this, second_atm_start_time);
+                            transports.last().data()->deliverFromTo(c_item.data()->id(), intersect, n_pos, this, second_atm_start_time, c_item.data()->currentOp());
 
                             transports.first().data()->getLog().last().cross_move = 1;
                             transports.last().data()->getLog().last().cross_move = 2;
@@ -505,12 +535,24 @@ void DataStorage::calculateThemAll()
                         c_fpm.data()->setStatus(FStatus::Busy);
                         c_fpm.data()->getLog().push_back(LogEntry(current_time, c_item.data()->nextFPMtime(), c_item.data()->id(), c_item.data()->currentOp()));
 
-                        QString tok;
-                        tok += "[" + QString::number(c_item.data()->id() + 1) + "] ";
-                        for(int i{0}; i < c_fpm.data()->queueSize(); ++i){
-                            tok += QString::number(c_fpm.data()->queue[i].data()->id() + 1) + " ";
+                        Case tcase;
+                        tcase.string_rep += "[" + QString::number(sel.absolute_item_id + 1) + "] ";
+                        tcase.times_strs.push_back(QString::number(sel.best_time, 'f', 2));
+                        if(sel.alt_calculated){
+                            tcase.times_strs.last().push_back(" - " + QString::number(sel.alt_time, 'f', 2));
                         }
-                        archive.data()->saveString(tok, c_fpm.data()->Id(), current_time);
+                        for(int i{0}; i < sel.relative_candidates.size(); ++i){
+                            if(sel.relative_candidates[i] == sel.relative_item_id){
+                                continue;
+                            }
+                            tcase.string_rep += QString::number(sel.absolute_candidates[i] + 1) + " ";
+                            tcase.times_strs.push_back(QString::number(sel.candidates_times[i], 'f', 2));
+                            if(sel.alt_calculated && sel.best_time == sel.candidates_times[i]){
+                                tcase.times_strs.last().push_back(" - " + QString::number(sel.alt_times[i], 'f', 2));
+                            }
+                        }
+
+                        archive.data()->saveCase(tcase, c_fpm.data()->Id(), current_time);
 
                         c_item.data()->setFactory(c_fpm);
                         c_item.data()->current_pos = c_item.data()->nextFPMid();
@@ -547,7 +589,7 @@ void DataStorage::calculateThemAll()
                                 goto nah;
                             }else{
                                 c_item.data()->setFactory(transports.last());
-                                double move_start_time = current_time + 0.5;
+                                double move_start_time = current_time;
                                 if(transports.first().data()->getLog().size()){
                                     delay_time = transports.first().data()->getLog().last().end() > current_time ? transports.first().data()->getLog().last().end() - current_time : 0;
                                 }
@@ -560,17 +602,18 @@ void DataStorage::calculateThemAll()
                                     transports.first().data()->transportToNextPos(c_item, this, move_start_time, c_ts);
                                 }else{
                                     int intersect = move_intersections[c_ts - 2][n_pos][c_pos];
-                                    double rollover_time = transports.first().data()->haulFromTo(c_item.data()->id(), c_pos, intersect, this, move_start_time);
+                                    double rollover_time = transports.first().data()->haulFromTo(c_item.data()->id(), c_pos, intersect, this, move_start_time, c_item.data()->currentOp());
                                     reloader.data()->getLog().push_back(LogEntry(rollover_time, 1, c_item.data()->id(), c_item.data()->currentOp()));
                                     double second_atm_start_time = rollover_time;// - time_to_pos_to_from[transports.last().data()->tId()][intersect][transports.last().data()->cPos()];
-                                    transports.last().data()->deliverFromTo(c_item.data()->id(), intersect, n_pos, this, second_atm_start_time);
+                                    transports.last().data()->deliverFromTo(c_item.data()->id(), intersect, n_pos, this, second_atm_start_time, c_item.data()->currentOp());
 
                                     transports.first().data()->getLog().last().cross_move = 1;
                                     transports.last().data()->getLog().last().cross_move = 2;
                                 }
 
-                                c_item.data()->on_the_way = true;
                                 n_fpm->addToQueue(c_item);
+                                n_fpm->last_best = current_rule.data()->selectItem(this, n_fpm);
+                                c_item.data()->on_the_way = true;
                                 n_fpm.data()->setStatus(FStatus::WaitingForSupply);
                             }
                         }else{
@@ -583,41 +626,37 @@ void DataStorage::calculateThemAll()
                 }else{
                     if(!no_atm){
                         nah:
-                        double best_time{INT_MAX};
                         QVector<QSharedPointer<ATM>> transports;
                         int c_pos = c_item.data()->currentFPMid();
-                        int best_ts;
-                        int best_dest;
-                        for(int i{0}; i < as.size(); ++i){
-                            double c_time;
-                            int c_ts;
-                            auto tr = findBestAtmsToMoveFromTo(c_pos, as[i].data()->id(), &c_time, &c_ts);
-                            if(c_time < best_time && tr.size()){
-                                best_time = c_time;
-                                transports = tr;
-                                best_ts = c_ts;
-                                best_dest = i;
-                            }
+                        int dest;
+                        if(as.size() == 2){
+                            dest = 1;
+                        }else{
+                            dest = 0;
                         }
+
+                        double c_time;
+                        int c_ts;
+                        transports = findBestAtmsToMoveFromTo(c_pos, dest, &c_time, &c_ts);
                         if(!transports.size()){
                             continue; //Good luck next time
                         }
 
                         c_item.data()->setFactory(transports.last());
-                        double move_start_time = current_time + 0.5;
+                        double move_start_time = current_time;
                         if(transports.first().data()->getLog().size()){
                             delay_time = transports.first().data()->getLog().last().end() > current_time ? transports.first().data()->getLog().last().end() - current_time : 0;
                         }
                         delay_time += time_to_pos_to_from[transports.first().data()->tId()][c_pos][transports.first().data()->cPos()] + time_to_unload + time_to_take_place;
 
-                        if(best_ts < 2){
-                            transports.first().data()->haulFromTo(c_item.data()->id(), c_pos, as[best_dest].data()->id(), this, move_start_time);
+                        if(c_ts < 2){
+                            transports.first().data()->haulFromTo(c_item.data()->id(), c_pos, dest, this, move_start_time, c_item.data()->currentOp());
                         }else{
-                            int intersect = move_intersections[best_ts - 2][as[best_dest].data()->id()][c_pos];
-                            double rollover_time = transports.first().data()->haulFromTo(c_item.data()->id(), c_pos, intersect, this, move_start_time);
+                            int intersect = move_intersections[c_ts - 2][dest][c_pos];
+                            double rollover_time = transports.first().data()->haulFromTo(c_item.data()->id(), c_pos, intersect, this, move_start_time, c_item.data()->currentOp());
                             reloader.data()->getLog().push_back(LogEntry(rollover_time, 1, c_item.data()->id(), c_item.data()->currentOp()));
                             double second_atm_start_time = rollover_time;// - time_to_pos_to_from[transports.last().data()->tId()][intersect][transports.last().data()->cPos()];
-                            transports.last().data()->deliverFromTo(c_item.data()->id(), intersect, as[best_dest].data()->id(), this, second_atm_start_time);
+                            transports.last().data()->deliverFromTo(c_item.data()->id(), intersect, dest, this, second_atm_start_time, c_item.data()->currentOp());
 
                             transports.first().data()->getLog().last().cross_move = 1;
                             transports.last().data()->getLog().last().cross_move = 2;
@@ -639,7 +678,8 @@ void DataStorage::calculateThemAll()
                     QSharedPointer<Item> nptr;
                     c_fpm.data()->setCurrent(nptr);
                     c_fpm.data()->setStatus(FStatus::Idle);
-                    archive.data()->saveString(QString("\0"), c_fpm.data()->Id(), current_time);
+                    const Case null_case = {{}, {}, "\0"};
+                    archive.data()->saveCase(null_case, c_fpm.data()->Id(), current_time);
                     continue;
                 }else{
                     goto select_next_from_idle;

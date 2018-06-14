@@ -2,6 +2,7 @@
 #define FPM_H
 
 #include "basefactory.h"
+#include "suprule.h"
 
 class FPM : public BaseFactory
 {
@@ -14,6 +15,7 @@ public:
     void selectFromQueue(int num);
     void selectFromQueueById(int num);
     double queueTime();
+    TSelectionResult last_best;
 };
 
 #endif // FPM_H

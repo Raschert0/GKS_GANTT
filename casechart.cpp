@@ -15,7 +15,7 @@ void CaseChart::registerTime(int time)
     }
 }
 
-void CaseChart::saveString(QString &value, int id, double time)
+void CaseChart::saveCase(const Case &value, int id, double time)
 {
     int itime = (int)time;
     registerTime(itime);
@@ -30,9 +30,9 @@ void CaseChart::saveString(QString &value, int id, double time)
         if(i == id){
             continue;
         }
-        if(data[prev_time][i].isEmpty() || !data[itime][i].isNull()){
+        if(data[prev_time][i].string_rep.isEmpty() || !data[itime][i].string_rep.isNull()){
             continue;
         }
-        data[itime][i] = "-//-";
+        data[itime][i].string_rep = "-//-";
     }
 }

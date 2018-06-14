@@ -34,7 +34,7 @@ int ATM::cPos()
     return current_pos;
 }
 
-double ATM::haulFromTo(int payload, int pickup, int dest, DataStorage *data, double start_time)
+double ATM::haulFromTo(int payload, int pickup, int dest, DataStorage *data, double start_time, int item_op)
 {
     if(log.size()){
         if(start_time < log.last().end() + data->timeToPosTF(pickup, current_pos, transport_system_id)){
@@ -51,13 +51,13 @@ double ATM::haulFromTo(int payload, int pickup, int dest, DataStorage *data, dou
         duration -= data->loadTime();
     }
 
-    log.push_back(LogEntry(start_time, duration, payload, pickup, dest));
+    log.push_back(LogEntry(start_time, duration, payload, pickup, dest, item_op));
     moveTo(dest);
     return start_time + duration;
 }
 
 //It's da copy-paste time!
-double ATM::deliverFromTo(int payload, int pickup, int dest, DataStorage *data, double start_time)
+double ATM::deliverFromTo(int payload, int pickup, int dest, DataStorage *data, double start_time, int item_op)
 {
     if(log.size()){
         if(start_time < log.last().end() + data->timeToPosTF(pickup, current_pos, transport_system_id)){
@@ -73,7 +73,7 @@ double ATM::deliverFromTo(int payload, int pickup, int dest, DataStorage *data, 
         duration -= data->unloadTime();
     }
 
-    log.push_back(LogEntry(start_time, duration, payload, pickup, dest));
+    log.push_back(LogEntry(start_time, duration, payload, pickup, dest, item_op));
     moveTo(dest);
     return start_time + duration;
 }
@@ -99,7 +99,7 @@ double ATM::transportToNextPos(QSharedPointer<Item> payload, DataStorage *data, 
         duration += data->timeToMoveTF(n_pos, c_pos, transport_system_id);
     }
 
-    log.push_back(LogEntry(start_time, duration, payload.data()->id(), c_pos, n_pos));
+    log.push_back(LogEntry(start_time, duration, payload.data()->id(), c_pos, n_pos, payload.data()->currentOp()));
     moveTo(n_pos);
     return start_time + duration;
 }

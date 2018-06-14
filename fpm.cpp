@@ -1,4 +1,5 @@
 #include "fpm.h"
+#include "suprule.h"
 #include <QDebug>
 
 static int global_fpm_id{0};

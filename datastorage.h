@@ -30,6 +30,9 @@ public:
     double unloadTime();
     int asCount();
     void disable_atms();
+
+    QVector<bool> fpm_has_two_buffers;
+
 private:
     //Ocean's Eleven
     friend class FirstRule;

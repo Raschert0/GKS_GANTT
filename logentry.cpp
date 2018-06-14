@@ -5,7 +5,8 @@ LogEntry::LogEntry(double start, double dur, int id, int c_op) : start_time{star
     end_time = start + dur;
 }
 
-LogEntry::LogEntry(double start, double dur, int id, int s_pos, int e_pos) : start_time{start}, duration_t{dur}, item_id{id}, s_pos{s_pos}, e_pos{e_pos}{
+LogEntry::LogEntry(double start, double dur, int id, int s_pos, int e_pos, int c_op) : start_time{start}, duration_t{dur}, item_id{id}, s_pos{s_pos}, e_pos{e_pos}, item_op{c_op}
+{
     end_time = start + dur;
 }
 
