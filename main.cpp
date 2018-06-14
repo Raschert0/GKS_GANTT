@@ -3,6 +3,7 @@
 #include <QFileDialog>
 #include <QProgressDialog>
 #include <QStandardPaths>
+#include <QInputDialog>
 #include "datastorage.h"
 #include "suprule.h"
 
@@ -21,6 +22,13 @@ int main(int argc, char *argv[])
                                                  "*.txt");
     if(fname.isEmpty() || !gdata.load(fname) || !gnoatmdata.load(fname)){
         exit(1);
+    }
+
+    bool itsok;
+    double pre = QInputDialog::getDouble(nullptr, QString("User input"), QString("Уведіть крок дискрети часу"), 0.01, 0.001, 0.5, 3, &itsok);
+    if(itsok){
+        gdata.discrete = pre;
+        gnoatmdata.discrete = pre;
     }
 
     QProgressDialog progress("Calculating...", QString(), 0, 15);

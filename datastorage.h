@@ -40,7 +40,7 @@ public:
     void disable_atms();
 
     QVector<bool> fpm_has_two_buffers;
-
+    double discrete{0.01};
 private:
     //Ocean's Eleven
     friend class FirstRule;
@@ -54,7 +54,6 @@ private:
 
     bool no_atm{false};
 
-    const double discrete{0.1};
     double current_time{0};
 
     template<typename T>
@@ -90,6 +89,8 @@ private:
     QVector<QVector<QVector<int>>> move_intersections;
 
     QSharedPointer<SupRule> current_rule;
+
+    int cur_file_id{0};
 };
 
 #endif // DATASTORAGE_H

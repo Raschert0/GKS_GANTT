@@ -397,6 +397,13 @@ void DataStorage::firstRun()
 
 void DataStorage::calculateThemAll()
 {
+    static const QVector<QString> XlsxNames = {"Правило найкоротшої операції",
+                                              "Правило максимальної залишкової трудомісткості",
+                                              "Правило вирівнювання завантаження верстатів",
+                                              "Правило мінімальної залишкової трудомісткості",
+                                              "Правило найдовшої операції"
+                                              };
+
     QXlsx::Document atm_cases;
     if(!no_atm){
         atm_cases.write(1, 1, QString("Час"));
@@ -407,7 +414,7 @@ void DataStorage::calculateThemAll()
         }
         if(ts_count > 1){
             for(int j{0}; j < atms_count - 1; ++j){
-                atm_cases.write(1, i + 3, QString("АТМ") + QString::number(as_count) + QString(" + АТМ") + QString::number(j + 1));
+                atm_cases.write(1, i + 3, QString("АТМ") + QString::number(atms_count) + QString(" + АТМ") + QString::number(j + 1));
                 atm_cases.setColumnWidth(i+3, i+3, 13.0);
                 ++i;
             }
@@ -557,6 +564,7 @@ void DataStorage::calculateThemAll()
                 }
             }
 
+            //Запис "верхньої частини" портфелю АТМів
             if(!absolutely_empty){
                 for(int i{0}; i < patms_opps.size(); ++i){
                     if(!time_printed){
@@ -565,12 +573,24 @@ void DataStorage::calculateThemAll()
                     }
                     atm_cases.write(crow + i, 2, QString::number(pbest_items[i].data()->id()));
                     for(int j{0}; j < patms_opps[i].size(); ++j){
-                        atm_cases.write(crow + i, 3 + j, QString::number(patms_opps[i][j].time_for_all_moves));
+                        int c_ts = patms_opps[i][j].used_ts;
+                        if(c_ts < 2){
+                            atm_cases.write(crow + i, 3 + patms_opps[i][j].used_atms.first().data()->Id(), QString::number(patms_opps[i][j].time_for_all_moves));
+                        }else{
+                            int f_id = patms_opps[i][j].used_atms.first().data()->Id();
+                            int s_id = patms_opps[i][j].used_atms.last().data()->Id();
+                            if(c_ts == 3){ //З кільця на лінію
+                                atm_cases.write(crow + i, 3 + atms_count + f_id, QString::number(patms_opps[i][j].time_for_all_moves));
+                            }else{ //З лінії на кільце
+                                atm_cases.write(crow + i, 3 + atms_count * 2 - 1 + s_id, QString::number(patms_opps[i][j].time_for_all_moves));
+                            }
+                        }
                     }
                 }
                 crow += patms_opps.size();
             }
 
+            QVector<QVector<ATMSel>> patms_opps_copy = patms_opps;
             while(patms_opps.size()){
                 if(!free_atms.size()){
                     break;
@@ -580,6 +600,29 @@ void DataStorage::calculateThemAll()
                 }
                 auto min_o = std::min_element(patms_opps.constBegin(), patms_opps.constEnd(), cmp_opps_outer);
                 const ATMSel *min_i = std::min_element(min_o->constBegin(), min_o->constEnd(), cmp_opps);
+
+                {
+                    int row_d = patms_opps_copy.indexOf(*min_o) - patms_opps_copy.size();
+                    int c_ts = min_i->used_ts;
+                    if(c_ts < 2){
+                        QString ostr = atm_cases.read(crow + row_d, 3 + min_i->used_atms.first().data()->Id()).toString();
+                        QXlsx::Format bold;
+                        bold.setFontBold(true);
+                        atm_cases.write(crow + row_d, 3 + min_i->used_atms.first().data()->Id(), ostr, bold);
+                    }else{
+                        int f_id = min_i->used_atms.first().data()->Id();
+                        int s_id = min_i->used_atms.last().data()->Id();
+                        QXlsx::Format bold;
+                        bold.setFontBold(true);
+                        if(c_ts == 3){ //З кільця на лінію
+                            QString ostr = atm_cases.read(crow + row_d,  3 + atms_count + f_id).toString();
+                            atm_cases.write(crow + row_d, 3 + atms_count + f_id, ostr, bold);
+                        }else{ //З лінії на кільце
+                            QString ostr = atm_cases.read(crow + row_d,  3 + atms_count * 2 - 1 + s_id).toString();
+                            atm_cases.write(crow + row_d, 3 + atms_count * 2 - 1 + s_id, ostr, bold);
+                        }
+                    }
+                }
 
                 QSharedPointer<Item> t_item = pbest_items[patms_opps.indexOf(*min_o)];
                 int c_pos = t_item.data()->current_pos;
@@ -696,21 +739,50 @@ void DataStorage::calculateThemAll()
                 }
             }
 
+
+
+            //Запис "нижньої частини" портфелю АТМів
             if(!absolutely_empty){
+                if(time_printed){
+                    int mmmax;
+                    if(ts_count == 2){
+                        mmmax = atms_count * 3;
+                    }else{
+                        mmmax = atms_count + 2;
+                    }
+                    for(int i{1}; i <= mmmax; ++i){
+                        atm_cases.write(crow, i, QString("---"));
+                    }
+                    atm_cases.setRowHeight(crow, crow, 5.0);
+                    ++crow;
+                }
+
                 for(int i{0}; i < atms_opps.size(); ++i){
                     if(!time_printed){
                         atm_cases.write(crow, 1, QString::number(current_time));
                         time_printed = true;
                     }
                     atm_cases.write(crow + i, 2, QString::number(best_items[i].data()->id()));
+                    atm_cases.write(crow + i, 2, QString::number(best_items[i].data()->id()));
                     for(int j{0}; j < atms_opps[i].size(); ++j){
-                        atm_cases.write(crow + i, 3 + j, QString::number(atms_opps[i][j].time_for_all_moves));
+                        int c_ts = atms_opps[i][j].used_ts;
+                        if(c_ts < 2){
+                            atm_cases.write(crow + i, 3 + atms_opps[i][j].used_atms.first().data()->Id(), QString::number(atms_opps[i][j].time_for_all_moves));
+                        }else{
+                            int f_id = atms_opps[i][j].used_atms.first().data()->Id();
+                            int s_id = atms_opps[i][j].used_atms.last().data()->Id();
+                            if(c_ts == 3){ //З кільця на лінію
+                                atm_cases.write(crow + i, 3 + atms_count + f_id, QString::number(atms_opps[i][j].time_for_all_moves));
+                            }else{ //З лінії на кільце
+                                atm_cases.write(crow + i, 3 + atms_count * 2 - 1 + s_id, QString::number(atms_opps[i][j].time_for_all_moves));
+                            }
+                        }
                     }
                 }
                 crow += atms_opps.size();
             }
 
-
+            QVector<QVector<ATMSel>> atms_opps_copy = atms_opps;
             while(atms_opps.size()){
                 if(!free_atms.size()){
                     break;
@@ -721,6 +793,29 @@ void DataStorage::calculateThemAll()
 
                 auto min_o = std::min_element(atms_opps.constBegin(), atms_opps.constEnd(), cmp_opps_outer);
                 const ATMSel *min_i = std::min_element(min_o->constBegin(), min_o->constEnd(), cmp_opps);
+
+                {
+                    int row_d = atms_opps_copy.indexOf(*min_o) - atms_opps_copy.size();
+                    int c_ts = min_i->used_ts;
+                    if(c_ts < 2){
+                        QString ostr = atm_cases.read(crow + row_d, 3 + min_i->used_atms.first().data()->Id()).toString();
+                        QXlsx::Format bold;
+                        bold.setFontBold(true);
+                        atm_cases.write(crow + row_d, 3 + min_i->used_atms.first().data()->Id(), ostr, bold);
+                    }else{
+                        int f_id = min_i->used_atms.first().data()->Id();
+                        int s_id = min_i->used_atms.last().data()->Id();
+                        QXlsx::Format bold;
+                        bold.setFontBold(true);
+                        if(c_ts == 3){ //З кільця на лінію
+                            QString ostr = atm_cases.read(crow + row_d,  3 + atms_count + f_id).toString();
+                            atm_cases.write(crow + row_d, 3 + atms_count + f_id, ostr, bold);
+                        }else{ //З лінії на кільце
+                            QString ostr = atm_cases.read(crow + row_d,  3 + atms_count * 2 - 1 + s_id).toString();
+                            atm_cases.write(crow + row_d, 3 + atms_count * 2 - 1 + s_id, ostr, bold);
+                        }
+                    }
+                }
 
                 QSharedPointer<Item> t_item = best_items[atms_opps.indexOf(*min_o)];
                 t_item.data()->send_me_to_as = 0;
@@ -783,6 +878,13 @@ void DataStorage::calculateThemAll()
                         }
                         if(!atms_opps[i].size()){
                             atms_opps.removeAt(i);
+                        }
+                    }
+                    for(int i{atms_opps_copy.size() - 1}; i >= 0; --i){
+                        for(int j{atms_opps_copy[i].size() - 1}; j >= 0; --j){
+                            if(atms_opps_copy[i][j].used_atms.contains(it)){
+                                atms_opps_copy[i].removeAt(j);
+                            }
                         }
                     }
                 }
@@ -917,7 +1019,8 @@ void DataStorage::calculateThemAll()
 
         current_time += discrete;
     }while(working);
-    atm_cases.saveAs("000dumb.xlsx");
+    atm_cases.saveAs(XlsxNames[cur_file_id] + QString("_atms_case.xlsx"));
+    ++cur_file_id;
 }
 
 double DataStorage::timeToPosTF(int to, int from, int ts)

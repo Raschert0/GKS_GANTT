@@ -59,6 +59,8 @@ MainWidget::MainWidget(DataStorage *data, DataStorage *natmdata, QWidget *parent
     const int h_lines_width{15};
 
     for(int z{0}; z < data->stored_atms.size(); ++z){
+        qDebug() << tab_names[z];
+
         QGraphicsScene *scene = new QGraphicsScene();
         QXlsx::Document trans_xlsx;
         trans_xlsx.setColumnWidth(1, 1, 15.0);
@@ -86,9 +88,13 @@ MainWidget::MainWidget(DataStorage *data, DataStorage *natmdata, QWidget *parent
 
         int end_y_atms{data->stored_atms[z].size() * (h_lines_step + h_lines_width) + h_lines_width + 10};
         for(int i{0}; i < data->stored_atms[z].size(); ++i){
+
             ATM* c_atm = data->stored_atms[z][i].data();
+            qDebug() << "ATM" + QString::number(c_atm->Id() + 1);;
             QVector<LogEntry> &log = c_atm->getLog();
+            QString log_str;
             for(int j{0}; j < log.size(); ++j){
+                log_str += QString::number(log[j].itemId() + 1) + " ";
                 scene->addRect(log[j].start(),
                                i * (h_lines_step + h_lines_width),
                                log[j].duration(),
@@ -135,6 +141,7 @@ MainWidget::MainWidget(DataStorage *data, DataStorage *natmdata, QWidget *parent
                 num->setPos(log[j].start(), i * (h_lines_step + h_lines_width));
                 */
             }
+            qDebug() << log_str;
             scene->addLine(-50,
                            i * (h_lines_step + h_lines_width) + h_lines_width,
                            log.last().end(),
@@ -222,7 +229,7 @@ MainWidget::MainWidget(DataStorage *data, DataStorage *natmdata, QWidget *parent
                     QString str = it[iit].string_rep;
                     QVector<QString> splstr = str.split(QRegExp("\\s+"), QString::SkipEmptyParts).toVector();
                     if(splstr.first() != QString("-//-")){
-                        s_xlsx.write(i / 2 + 1, jj, splstr.first());
+                        s_xlsx.write(i / 3 + 1, jj, splstr.first());
                         ++jj;
                         for(int k{0}; k < splstr.size(); ++k){
                             xlsx.write(j, i + 1, splstr[k]);
@@ -318,7 +325,7 @@ MainWidget::MainWidget(DataStorage *data, DataStorage *natmdata, QWidget *parent
                     QString str = it[iit].string_rep;
                     QVector<QString> splstr = str.split(QRegExp("\\s+"), QString::SkipEmptyParts).toVector();
                     if(splstr.first() != QString("-//-")){
-                        s_xlsx.write(i / 2 + 1, jj, splstr.first());
+                        s_xlsx.write(i / 3 + 1, jj, splstr.first());
                         ++jj;
                         for(int k{0}; k < splstr.size(); ++k){
                             xlsx.write(j, i + 1, splstr[k]);
