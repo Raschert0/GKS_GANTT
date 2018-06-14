@@ -10,7 +10,8 @@ enum class FStatus{
     Idle,
     Busy,
     Positioning,
-    WaitingForSupply
+    WaitingForSupply,
+    InHopeForFreedom
 };
 
 class BaseFactory

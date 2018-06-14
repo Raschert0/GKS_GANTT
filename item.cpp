@@ -53,6 +53,9 @@ QSharedPointer<BaseFactory> Item::factory()
 
 int Item::nextFPMid()
 {
+    if(send_me_to_as){
+        return send_me_to_as - 1;
+    }
     if(current_op >= operations.size() - 1){
         return 0;
     }

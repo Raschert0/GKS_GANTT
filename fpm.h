@@ -16,6 +16,7 @@ public:
     void selectFromQueueById(int num);
     double queueTime();
     TSelectionResult last_best;
+    double last_wait_for_supply{0};
 };
 
 #endif // FPM_H

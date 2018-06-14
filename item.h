@@ -24,6 +24,7 @@ public:
     int id();
     QSharedPointer<BaseFactory> factory();
     bool on_the_way{false};
+    int send_me_to_as{0};
     int current_pos{0};
 private:
     int _id;

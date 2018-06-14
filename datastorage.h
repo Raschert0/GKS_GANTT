@@ -10,6 +10,13 @@
 #include "suprule.h"
 #include "casechart.h"
 
+struct ATMSel{
+    QVector<QSharedPointer<ATM>> used_atms;
+    //bool path_is_valid{false};
+    int used_ts;
+    double time_for_all_moves;
+};
+
 class DataStorage
 {
 public:
@@ -25,6 +32,7 @@ public:
     double timeToMoveTF(int to, int from, int ts);
     QVector<QSharedPointer<ATM>> findBestAtmsToMoveFromTo(int from, int to, double *ret_time, int *ret_ts);
     QVector<QSharedPointer<ATM>> findBestAtmsToMoveFromToInList(int from, int to, double *ret_time, int *ret_ts, QVector<QSharedPointer<ATM>> &container);
+    QVector<ATMSel> findAllAtmsTimesToMoveFromToInList(int from, int to, QVector<QSharedPointer<ATM>> &container);
 
     double loadTime();
     double unloadTime();
@@ -46,7 +54,7 @@ private:
 
     bool no_atm{false};
 
-    const double discrete{0.01};
+    const double discrete{0.1};
     double current_time{0};
 
     template<typename T>
