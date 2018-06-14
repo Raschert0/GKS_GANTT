@@ -495,9 +495,17 @@ void MainWidget::createPetri(QVector<QString> &tab_names)
                 QString prev_op_name;
                 if(j == log.size() - 1){
                     next_item_name = "Д" + QString::number(log[0].itemId() + 1);
-                    prev_item_name = "Д" + QString::number(log[j - 1].itemId() + 1);
+                    if(log.size() == 1){
+                        prev_item_name = "Д" + QString::number(log[0].itemId() + 1);
+                    }else{
+                        prev_item_name = "Д" + QString::number(log[j - 1].itemId() + 1);
+                    }
                     next_op_name = QString::number(log[0].op() + 2);
-                    prev_op_name = QString::number(log[j - 1].op() + 2);
+                    if(log.size() == 1){
+                        prev_op_name = QString::number(log[0].op() + 2);
+                    }else{
+                        prev_op_name = QString::number(log[j - 1].op() + 2);
+                    }
                 }else if(!j){
                     next_item_name = "Д" + QString::number(log[1].itemId() + 1);
                     prev_item_name = "Д" + QString::number(log[log.size() - 1].itemId() + 1);
@@ -761,17 +769,23 @@ void MainWidget::createPetri(QVector<QString> &tab_names)
                     if(d->fpm_has_two_buffers[log[j].dest() - d->asCount()]){
                         p_prev_1 = prev_bufers_map[p_3];
                         if(p_prev_1.isEmpty()){
-                            qDebug() << p_3 << "not found";
+                            qDebug() << p_3 << "not found 1" << tab_names[z];
                         }
                     }else{
                         p_prev_1 = prev_bufers_map[p_3];
-                        QString tmp = item_name + " у накопичувачі " + dest_name + " після " + QString::number(ciop + 1) + " операції";
+                        QString tmp = item_name + " у накопичувачі " + dest_name + " після ";
+                        if(log[j].op() == -1){
+                            tmp += "1 операції";
+                        }else{
+                            tmp += QString::number(ciop + 1) + " операції";
+                        }
+
                         p_prev_2 = prev_bufers_map[tmp];
                         if(p_prev_1.isEmpty()){
-                            qDebug() << p_3 << "not found";
+                            qDebug() << p_3 << "not found 2" << tab_names[z];
                         }
                         if(p_prev_2.isEmpty()){
-                            qDebug() << tmp << "not found";
+                            qDebug() << tmp << "not found 3" << tab_names[z];
                         }
                     }
                 }else if(p_3.contains(QString("ПП"))){

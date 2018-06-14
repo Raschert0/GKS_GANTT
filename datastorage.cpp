@@ -10,6 +10,8 @@
 #include "datastorage.h"
 #include "errorshandler.h"
 
+#include "xlsxdocument.h"
+
 bool cmp_opps(const ATMSel &a, const ATMSel &b){
     return a.time_for_all_moves < b.time_for_all_moves;
 }
@@ -395,6 +397,30 @@ void DataStorage::firstRun()
 
 void DataStorage::calculateThemAll()
 {
+    QXlsx::Document atm_cases;
+    if(!no_atm){
+        atm_cases.write(1, 1, QString("Час"));
+        atm_cases.write(1, 2, QString("Деталь"));
+        int i{0};
+        for(; i < atms_count; ++i){
+            atm_cases.write(1, i + 3, QString("АТМ") + QString::number(i + 1));
+        }
+        if(ts_count > 1){
+            for(int j{0}; j < atms_count - 1; ++j){
+                atm_cases.write(1, i + 3, QString("АТМ") + QString::number(as_count) + QString(" + АТМ") + QString::number(j + 1));
+                atm_cases.setColumnWidth(i+3, i+3, 13.0);
+                ++i;
+            }
+            for(int j{0}; j < atms_count - 1; ++j){
+                atm_cases.write(1, i + 3, QString("АТМ") + QString::number(j + 1) + QString(" + АТМ") + QString::number(atms_count));
+                atm_cases.setColumnWidth(i+3, i+3, 13.0);
+                ++i;
+            }
+        }
+    }
+
+    int crow{2};
+
     bool working;
     do{
         working = false;
@@ -484,6 +510,8 @@ void DataStorage::calculateThemAll()
             }
 
         //FPMs preprocessing (for version with ATM's only)
+            bool time_printed{false};
+
             QVector<QSharedPointer<FPM>> pfpms_to_handle;
             for(int i{0}; i < fpms.size(); ++i){
                 if(fpms[i].data()->status() == FStatus::InHopeForFreedom){
@@ -521,16 +549,31 @@ void DataStorage::calculateThemAll()
                 patms_opps.push_back(c_opp);
             }
 
+            bool absolutely_empty{true};
+            for(int i{0}; i < patms_opps.size(); ++i){
+                if(patms_opps[i].size()){
+                    absolutely_empty = false;
+                    break;
+                }
+            }
+
+            if(!absolutely_empty){
+                for(int i{0}; i < patms_opps.size(); ++i){
+                    if(!time_printed){
+                        atm_cases.write(crow, 1, QString::number(current_time));
+                        time_printed = true;
+                    }
+                    atm_cases.write(crow + i, 2, QString::number(pbest_items[i].data()->id()));
+                    for(int j{0}; j < patms_opps[i].size(); ++j){
+                        atm_cases.write(crow + i, 3 + j, QString::number(patms_opps[i][j].time_for_all_moves));
+                    }
+                }
+                crow += patms_opps.size();
+            }
+
             while(patms_opps.size()){
                 if(!free_atms.size()){
                     break;
-                }
-                bool absolutely_empty{true};
-                for(int i{0}; i < patms_opps.size(); ++i){
-                    if(patms_opps[i].size()){
-                        absolutely_empty = false;
-                        break;
-                    }
                 }
                 if(absolutely_empty){
                     break;
@@ -546,11 +589,21 @@ void DataStorage::calculateThemAll()
                 QVector<QSharedPointer<ATM>> to_del = min_i->used_atms;
 
                 t_item.data()->setFactory(min_i->used_atms.last());
-                double move_start_time = current_time - time_to_move_to_from[min_i->used_atms.first().data()->tId()][n_pos][c_pos];
+                double move_start_time = current_time;//- time_to_move_to_from[min_i->used_atms.first().data()->tId()][n_pos][c_pos];
+                //move_start_time += pfpms_to_handle[patms_opps.indexOf(*min_o)].data()->last_delay;
                 //double move_start_time = current_time + 0.1 - time_to_move_to_from[transports.first().data()->tId()][n_pos][c_pos];
                 if(move_start_time < 0){
                     move_start_time = 0;
                 }
+
+                if(min_i->used_atms.first().data()->getLog().size()){
+                    pfpms_to_handle[patms_opps.indexOf(*min_o)].data()->last_delay = std::max(0.0, min_i->used_atms.first().data()->getLog().last().end() - current_time);
+                }else{
+                    pfpms_to_handle[patms_opps.indexOf(*min_o)].data()->last_delay = 0;
+                }
+
+                pfpms_to_handle[patms_opps.indexOf(*min_o)].data()->last_delay += time_to_pos_to_from[min_i->used_atms.first().data()->tId()][c_pos][min_i->used_atms.first().data()->cPos()] + time_to_unload + time_to_take_place;
+
 
                 if(c_ts < 2){
                     min_i->used_atms.first().data()->transportToNextPos(t_item, this, move_start_time, c_ts);
@@ -577,6 +630,7 @@ void DataStorage::calculateThemAll()
                 }
 
                 //видалення "відправлених" деталей із черги на обслуговування та видалення АТМів, що стали зайнятими
+                pbest_items.removeAt(ind);
                 pfpms_to_handle.removeAt(ind);
                 patms_opps.removeOne(*min_o);
                 for(auto &it : to_del){
@@ -634,16 +688,32 @@ void DataStorage::calculateThemAll()
                 atms_opps.push_back(c_opp);
             }
 
+            absolutely_empty = true;
+            for(int i{0}; i < atms_opps.size(); ++i){
+                if(atms_opps[i].size()){
+                    absolutely_empty = false;
+                    break;
+                }
+            }
+
+            if(!absolutely_empty){
+                for(int i{0}; i < atms_opps.size(); ++i){
+                    if(!time_printed){
+                        atm_cases.write(crow, 1, QString::number(current_time));
+                        time_printed = true;
+                    }
+                    atm_cases.write(crow + i, 2, QString::number(best_items[i].data()->id()));
+                    for(int j{0}; j < atms_opps[i].size(); ++j){
+                        atm_cases.write(crow + i, 3 + j, QString::number(atms_opps[i][j].time_for_all_moves));
+                    }
+                }
+                crow += atms_opps.size();
+            }
+
+
             while(atms_opps.size()){
                 if(!free_atms.size()){
                     break;
-                }
-                bool absolutely_empty{true};
-                for(int i{0}; i < atms_opps.size(); ++i){
-                    if(atms_opps[i].size()){
-                        absolutely_empty = false;
-                        break;
-                    }
                 }
                 if(absolutely_empty){
                     break;
@@ -653,6 +723,7 @@ void DataStorage::calculateThemAll()
                 const ATMSel *min_i = std::min_element(min_o->constBegin(), min_o->constEnd(), cmp_opps);
 
                 QSharedPointer<Item> t_item = best_items[atms_opps.indexOf(*min_o)];
+                t_item.data()->send_me_to_as = 0;
                 int c_pos = t_item.data()->current_pos;
                 int n_pos = t_item.data()->nextFPMid();
                 int c_ts = min_i->used_ts;
@@ -661,9 +732,20 @@ void DataStorage::calculateThemAll()
 
                 t_item.data()->setFactory(min_i->used_atms.last());
                 double move_start_time = current_time - time_to_move_to_from[min_i->used_atms.first().data()->tId()][n_pos][c_pos];
+                move_start_time += fpms_to_handle[atms_opps.indexOf(*min_o)].data()->last_delay;
                 //double move_start_time = current_time + 0.1 - time_to_move_to_from[transports.first().data()->tId()][n_pos][c_pos];
                 if(move_start_time < 0){
                     move_start_time = 0;
+                }
+
+                QSharedPointer<FPM> prev_fpm;
+                if(c_pos > as_count - 1){
+                    prev_fpm = fpms[c_pos - as_count];
+                }
+
+                if(prev_fpm.data() != nullptr){
+                    prev_fpm.data()->last_delay = std::max(0.0, min_i->used_atms.first().data()->getLog().last().end() - current_time);
+                    prev_fpm.data()->last_delay += time_to_pos_to_from[min_i->used_atms.first().data()->tId()][c_pos][min_i->used_atms.first().data()->cPos()] + time_to_unload + time_to_take_place;
                 }
 
                 if(c_ts < 2){
@@ -679,6 +761,7 @@ void DataStorage::calculateThemAll()
                     min_i->used_atms.last().data()->getLog().last().cross_move = 2;
                 }
 
+
                 t_item.data()->on_the_way = true;
                 //c_fpm.data()->addToQueue(c_item);
                 int ind = atms_opps.indexOf(*min_o);
@@ -686,6 +769,7 @@ void DataStorage::calculateThemAll()
                 fpms_to_handle[ind].data()->last_wait_for_supply = current_time;
                 fpms_to_handle[ind].data()->last_best = sels[ind];
                 fpms_to_handle.removeAt(ind);
+                best_items.removeAt(ind);
 
                 //видалення "відправлених" деталей із черги на обслуговування та видалення АТМів, що стали зайнятими
                 atms_opps.removeOne(*min_o);
@@ -712,7 +796,6 @@ void DataStorage::calculateThemAll()
 
         //FPMs processing
         for(int i{0}; i < fpms.size(); ++i){
-            double delay_time{0.0};
             QSharedPointer<FPM> c_fpm = fpms[i];
             switch(c_fpm.data()->status()){
             case FStatus::Idle:
@@ -834,6 +917,7 @@ void DataStorage::calculateThemAll()
 
         current_time += discrete;
     }while(working);
+    atm_cases.saveAs("000dumb.xlsx");
 }
 
 double DataStorage::timeToPosTF(int to, int from, int ts)

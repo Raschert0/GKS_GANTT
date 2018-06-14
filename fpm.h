@@ -17,6 +17,7 @@ public:
     double queueTime();
     TSelectionResult last_best;
     double last_wait_for_supply{0};
+    double last_delay{0};
 };
 
 #endif // FPM_H
